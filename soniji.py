@@ -8,10 +8,16 @@ from flask import (
     url_for,
     send_from_directory
 )
-from werkzeug.security import generate_password_hash, check_password_hash
+
+from werkzeug.security import (
+    generate_password_hash,
+    check_password_hash
+)
+
 from pathlib import Path
-from datetime import datetime
 from functools import wraps
+from datetime import datetime
+
 import sqlite3
 import os
 import uuid
@@ -25,19 +31,53 @@ APP_DIR = Path(__file__).resolve().parent
 
 DB = APP_DIR / "swarnkar_samaj.db"
 
-STATIC_DIR = APP_DIR / "static"
+# Public photos
+IMAGE_DIR = APP_DIR / "images"
 
-UPLOAD_DIR = STATIC_DIR / "uploads"
+# Admin uploaded photos
+UPLOAD_DIR = IMAGE_DIR / "uploads"
 
-STATIC_DIR.mkdir(exist_ok=True)
-UPLOAD_DIR.mkdir(exist_ok=True)
+# IMPORTANT:
+# Flask ka default static folder rakha gaya hai,
+# lekin society photos "images" folder me hongi.
+FLASK_STATIC_DIR = APP_DIR / "static"
 
-app = Flask(__name__)
+
+# ============================================================
+# CREATE DIRECTORIES
+# ============================================================
+
+IMAGE_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+UPLOAD_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+
+# ============================================================
+# FLASK APP
+# ============================================================
+
+app = Flask(
+    __name__,
+    static_folder="static",
+    static_url_path="/static"
+)
+
 
 app.secret_key = os.environ.get(
     "SAMAJ_SECRET_KEY",
     "maidh-swarnkar-samaj-secret-2026"
 )
+
+
+# ============================================================
+# ADMIN LOGIN
+# ============================================================
 
 ADMIN_USER = os.environ.get(
     "SAMAJ_ADMIN_USER",
@@ -60,7 +100,10 @@ ADMIN_PASSWORD_HASH = generate_password_hash(
 
 def db():
 
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(
+        DB,
+        timeout=30
+    )
 
     con.row_factory = sqlite3.Row
 
@@ -81,8 +124,7 @@ def setup():
 
         location TEXT DEFAULT 'जोधपुर, राजस्थान',
 
-        slogan TEXT DEFAULT
-            'एकता • सेवा • संस्कार • विकास',
+        slogan TEXT DEFAULT 'एकता • सेवा • संस्कार • विकास',
 
         about TEXT DEFAULT '',
 
@@ -106,14 +148,11 @@ def setup():
 
         upi_id TEXT DEFAULT '',
 
-        hero_photo TEXT DEFAULT
-            'ajmeedhji_maharaj.jpg',
+        hero_photo TEXT DEFAULT 'ajmeedhji_maharaj.jpg',
 
-        bhagwan_photo TEXT DEFAULT
-            'bhagwan.jpg',
+        bhagwan_photo TEXT DEFAULT 'bhagwan.jpg',
 
-        bhawan_photo TEXT DEFAULT
-            'samaj_bhawan.jpg'
+        bhawan_photo TEXT DEFAULT 'samaj_bhawan.jpg'
 
     );
 
@@ -290,7 +329,6 @@ def setup():
 
     """)
 
-
     row = con.execute(
         "SELECT id FROM settings WHERE id=1"
     ).fetchone()
@@ -344,7 +382,9 @@ def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
 
-        if not session.get("admin_logged_in"):
+        if not session.get(
+            "admin_logged_in"
+        ):
 
             return redirect(
                 url_for("admin_login")
@@ -402,15 +442,13 @@ def save_upload(file):
     return filename
 
 
-def text(value):
-
-    return "" if value is None else str(value)
-
-
 def safe(value):
 
+    if value is None:
+        return ""
+
     return (
-        text(value)
+        str(value)
         .replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
@@ -422,11 +460,44 @@ def money(value):
 
     try:
 
-        return f"₹ {float(value or 0):,.2f}"
+        return (
+            "₹ "
+            + format(
+                float(value or 0),
+                ",.2f"
+            )
+        )
 
     except Exception:
 
         return "₹ 0.00"
+
+
+def image_url(filename):
+
+    if not filename:
+
+        return ""
+
+    return url_for(
+        "image_file",
+        filename=filename
+    )
+
+
+# ============================================================
+# IMAGE ROUTE
+# ============================================================
+
+@app.route(
+    "/images/<path:filename>"
+)
+def image_file(filename):
+
+    return send_from_directory(
+        IMAGE_DIR,
+        filename
+    )
 
 
 # ============================================================
@@ -474,51 +545,72 @@ body{
 
     color:#2e1a09;
 
+    line-height:1.65;
+
     background:
 
         radial-gradient(
-            circle at top left,
-            #fff2b8,
-            transparent 28%
+            circle at 0% 0%,
+            #fff0b0,
+            transparent 27%
+        ),
+
+        radial-gradient(
+            circle at 100% 20%,
+            #f1d99a,
+            transparent 25%
         ),
 
         linear-gradient(
             135deg,
-            #fffdf8,
-            #f5e5b8,
-            #fffdf8
+            #fffdf7,
+            #f8ebca,
+            #fffdf7
         );
+
+    min-height:100vh;
 }
+
+
+/* ============================================================
+   HEADER
+============================================================ */
 
 header{
 
+    position:sticky;
+
+    top:0;
+
+    z-index:1000;
+
     background:
+
         linear-gradient(
             135deg,
-            #170902,
-            #5e340c,
-            #af791d,
-            #4a2606,
-            #130601
+            #150801,
+            #5b3109,
+            #a66f18,
+            #482205,
+            #120500
         );
 
-    color:white;
-
     border-bottom:
-        3px solid #e0b139;
+        3px solid #e1b43c;
 
     box-shadow:
-        0 8px 30px #0005;
+        0 8px 35px rgba(0,0,0,.25);
+
 }
 
 .header-inner{
 
-    max-width:1400px;
+    max-width:1450px;
 
     margin:auto;
 
     padding:
-        14px 22px;
+        13px 20px;
 
     display:flex;
 
@@ -550,23 +642,26 @@ header{
 
     display:flex;
 
-    justify-content:center;
-
     align-items:center;
+
+    justify-content:center;
 
     background:
         linear-gradient(
             135deg,
-            #fff,
-            #f6cf60
+            #fffdf0,
+            #f3cc57
         );
 
-    color:#885300;
+    color:#855000;
 
     font-size:27px;
 
     border:
-        2px solid #ffdf78;
+        2px solid #ffe292;
+
+    box-shadow:
+        0 0 20px rgba(255,214,85,.4);
 
 }
 
@@ -574,27 +669,34 @@ header{
 
     margin:0;
 
-    font-size:22px;
+    color:#ffe59a;
 
-    color:#ffe592;
+    font-size:22px;
 
 }
 
 .brand p{
 
-    margin:2px 0 0;
+    margin:0;
+
+    color:#fff0c7;
 
     font-size:12px;
 
-    color:#fff2cf;
-
 }
+
+
+/* ============================================================
+   NAV
+============================================================ */
 
 nav{
 
     display:flex;
 
     flex-wrap:wrap;
+
+    align-items:center;
 
     justify-content:center;
 
@@ -604,20 +706,21 @@ nav{
 
 nav a{
 
-    text-decoration:none;
-
     color:white;
 
+    text-decoration:none;
+
+    font-size:12px;
+
+    font-weight:800;
+
     padding:
-        9px 12px;
+        8px 10px;
 
-    border-radius:10px;
+    border-radius:9px;
 
-    font-size:13px;
-
-    font-weight:700;
-
-    transition:.25s;
+    transition:
+        .25s;
 
 }
 
@@ -626,16 +729,21 @@ nav a:hover{
     background:
         linear-gradient(
             135deg,
-            #e9b737,
-            #fff0a7
+            #eebd43,
+            #fff0a0
         );
 
-    color:#2b1605;
+    color:#281505;
 
     transform:
         translateY(-2px);
 
 }
+
+
+/* ============================================================
+   PAGE
+============================================================ */
 
 .page{
 
@@ -648,69 +756,122 @@ nav a:hover{
 
 }
 
-.hero-small{
+.hero{
 
-    min-height:340px;
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    text-align:center;
+    min-height:560px;
 
     border-radius:28px;
 
     overflow:hidden;
 
+    display:flex;
+
+    align-items:center;
+
+    justify-content:center;
+
+    text-align:center;
+
     background:
 
         linear-gradient(
-            rgba(20,7,0,.35),
-            rgba(20,7,0,.72)
+            rgba(20,8,0,.27),
+            rgba(20,8,0,.72)
         ),
 
-        url("/static/ajmeedhji_maharaj.jpg");
+        url("/images/ajmeedhji_maharaj.jpg");
 
     background-size:cover;
 
     background-position:center;
 
     box-shadow:
-        0 20px 50px #7d531f22;
+        0 25px 65px rgba(65,40,10,.22);
 
 }
 
 .hero-content{
 
-    color:white;
-
     width:min(
-        900px,
+        950px,
         92%
     );
 
-    padding:30px;
+    padding:35px;
+
+    color:white;
+
+    background:
+        rgba(15,6,1,.22);
+
+    backdrop-filter:
+        blur(8px);
+
+    border:
+        1px solid rgba(255,255,255,.2);
+
+    border-radius:28px;
 
 }
 
-.hero-content h2{
+.hero h2{
+
+    margin:10px 0;
 
     font-size:
-        clamp(34px,6vw,65px);
+        clamp(
+            40px,
+            7vw,
+            78px
+        );
 
-    color:#fff0ae;
+    color:#fff2ad;
 
-    margin:8px 0;
+    line-height:1.1;
 
 }
 
-.hero-content p{
+.hero h3{
 
-    font-size:17px;
+    font-size:
+        clamp(
+            20px,
+            3vw,
+            30px
+        );
 
-    color:#fff6da;
+    font-weight:500;
+
+}
+
+.hero p{
+
+    font-size:18px;
+
+    color:#fff6d7;
+
+    margin-top:12px;
+
+}
+
+.badge{
+
+    display:inline-block;
+
+    padding:
+        8px 18px;
+
+    border-radius:999px;
+
+    background:
+        rgba(255,255,255,.15);
+
+    border:
+        1px solid rgba(255,255,255,.3);
+
+    color:#ffe18a;
+
+    font-weight:800;
 
 }
 
@@ -722,36 +883,45 @@ nav a:hover{
 
     gap:10px;
 
+    align-items:center;
+
+}
+
+.center{
+
+    justify-content:center;
+
 }
 
 .btn{
 
     display:inline-block;
 
-    text-decoration:none;
-
     border:0;
 
+    text-decoration:none;
+
+    cursor:pointer;
+
     padding:
-        10px 15px;
+        11px 16px;
 
     border-radius:11px;
 
     font-weight:800;
 
-    cursor:pointer;
-
-    transition:.25s;
+    transition:
+        .25s;
 
 }
 
 .btn:hover{
 
     transform:
-        translateY(-2px);
+        translateY(-3px);
 
     filter:
-        brightness(1.08);
+        brightness(1.06);
 
 }
 
@@ -760,11 +930,11 @@ nav a:hover{
     background:
         linear-gradient(
             135deg,
-            #d69c18,
-            #f6d76c
+            #d79b18,
+            #f5d56b
         );
 
-    color:#2d1805;
+    color:#291505;
 
 }
 
@@ -773,8 +943,8 @@ nav a:hover{
     background:
         linear-gradient(
             135deg,
-            #2355bf,
-            #5a94ff
+            #2057bf,
+            #6195ff
         );
 
     color:white;
@@ -786,21 +956,8 @@ nav a:hover{
     background:
         linear-gradient(
             135deg,
-            #118548,
-            #2bc97b
-        );
-
-    color:white;
-
-}
-
-.red{
-
-    background:
-        linear-gradient(
-            135deg,
-            #a71f37,
-            #e25268
+            #0f8547,
+            #2bc979
         );
 
     color:white;
@@ -812,40 +969,80 @@ nav a:hover{
     background:
         linear-gradient(
             135deg,
-            #6640b8,
-            #a47df0
+            #663cb8,
+            #a27aec
         );
 
     color:white;
 
 }
 
-.panel{
+.red{
 
     background:
-        rgba(255,255,255,.94);
+        linear-gradient(
+            135deg,
+            #a91e36,
+            #df5266
+        );
 
-    border:
-        1px solid #ead8ab;
+    color:white;
 
-    border-radius:22px;
+}
 
-    padding:25px;
+
+/* ============================================================
+   PANELS
+============================================================ */
+
+.panel{
 
     margin-bottom:22px;
 
+    padding:25px;
+
+    border-radius:22px;
+
+    background:
+        rgba(
+            255,
+            255,
+            255,
+            .94
+        );
+
+    border:
+        1px solid #ead7a8;
+
     box-shadow:
-        0 15px 40px #79501912;
+        0 14px 40px rgba(84,52,15,.08);
 
 }
 
 .panel h2{
 
-    color:#714300;
-
     margin-top:0;
 
+    color:#6e4100;
+
 }
+
+.panel h3{
+
+    color:#754900;
+
+}
+
+.muted{
+
+    color:#777;
+
+}
+
+
+/* ============================================================
+   GRID
+============================================================ */
 
 .grid{
 
@@ -864,31 +1061,54 @@ nav a:hover{
 
 }
 
+
+/* ============================================================
+   CARDS
+============================================================ */
+
 .card{
 
     background:white;
 
     border:
-        1px solid #ead7a5;
+        1px solid #ead9b0;
 
     border-left:
-        5px solid #d3a12b;
+        5px solid #d6a52d;
 
     border-radius:18px;
 
     padding:20px;
 
     box-shadow:
-        0 10px 25px #6c441011;
+        0 10px 28px rgba(75,45,10,.08);
 
-    transition:.25s;
+    transition:
+        .28s;
 
 }
 
 .card:hover{
 
     transform:
-        translateY(-5px);
+        translateY(-6px);
+
+    box-shadow:
+        0 16px 38px rgba(75,45,10,.14);
+
+}
+
+.card h3{
+
+    color:#744700;
+
+    margin-top:0;
+
+}
+
+.card p{
+
+    color:#625a51;
 
 }
 
@@ -896,7 +1116,7 @@ nav a:hover{
 
     width:100%;
 
-    height:210px;
+    height:220px;
 
     object-fit:cover;
 
@@ -906,30 +1126,26 @@ nav a:hover{
 
 }
 
-.card h3{
 
-    color:#744800;
+/* ============================================================
+   PHOTO
+============================================================ */
 
-}
-
-.muted{
-
-    color:#777;
-
-}
-
-.info-photo{
+.large-photo{
 
     width:100%;
 
-    max-height:460px;
+    max-height:520px;
 
     object-fit:cover;
 
-    border-radius:22px;
+    border-radius:24px;
 
     border:
-        4px solid #f2dda0;
+        5px solid #f1dfa6;
+
+    box-shadow:
+        0 18px 45px rgba(80,50,10,.15);
 
 }
 
@@ -943,6 +1159,11 @@ nav a:hover{
     gap:22px;
 
 }
+
+
+/* ============================================================
+   GALLERY
+============================================================ */
 
 .gallery{
 
@@ -965,12 +1186,12 @@ nav a:hover{
 
     background:white;
 
-    border-radius:18px;
-
     overflow:hidden;
 
+    border-radius:18px;
+
     box-shadow:
-        0 10px 25px #6c441012;
+        0 10px 28px #69461112;
 
 }
 
@@ -978,11 +1199,20 @@ nav a:hover{
 
     width:100%;
 
-    height:220px;
+    height:230px;
 
     object-fit:cover;
 
     display:block;
+
+    transition:.35s;
+
+}
+
+.gallery-item:hover img{
+
+    transform:
+        scale(1.06);
 
 }
 
@@ -990,68 +1220,64 @@ nav a:hover{
 
     padding:12px;
 
-    font-weight:700;
+    font-weight:800;
+
+    color:#744700;
 
 }
 
-table{
 
-    width:100%;
-
-    border-collapse:collapse;
-
-}
-
-th{
-
-    background:#47250e;
-
-    color:#ffe79b;
-
-    padding:10px;
-
-    text-align:left;
-
-}
-
-td{
-
-    padding:10px;
-
-    border-bottom:
-        1px solid #eadfca;
-
-}
+/* ============================================================
+   FOOTER
+============================================================ */
 
 footer{
+
+    margin-top:20px;
+
+    padding:
+        40px 20px;
 
     text-align:center;
 
     background:
+
         linear-gradient(
             135deg,
-            #180a02,
-            #432108,
-            #180a02
+            #160701,
+            #472307,
+            #170701
         );
 
-    color:#ffe69d;
+    border-top:
+        3px solid #d7aa37;
 
-    padding:35px 20px;
+    color:#ffe7a0;
 
 }
 
 footer p{
 
-    color:#d6c9b9;
+    color:#d7cab9;
 
 }
 
-@media(max-width:900px){
+
+/* ============================================================
+   MOBILE
+============================================================ */
+
+@media(max-width:950px){
 
     .header-inner{
 
         flex-direction:column;
+
+    }
+
+    nav{
+
+        width:100%;
 
     }
 
@@ -1063,12 +1289,28 @@ footer p{
 
 }
 
-@media(max-width:600px){
+@media(max-width:650px){
 
     .page{
 
         padding:
-            25px 12px 55px;
+            20px 12px 55px;
+
+    }
+
+    .hero{
+
+        min-height:500px;
+
+        border-radius:20px;
+
+    }
+
+    .hero-content{
+
+        padding:25px 16px;
+
+        border-radius:20px;
 
     }
 
@@ -1076,8 +1318,7 @@ footer p{
 
         font-size:11px;
 
-        padding:
-            7px 8px;
+        padding:7px 8px;
 
     }
 
@@ -1133,6 +1374,10 @@ footer p{
 👥 सदस्य
 </a>
 
+<a href="{{ url_for('committee') }}">
+👔 समिति
+</a>
+
 <a href="{{ url_for('businesses') }}">
 🏪 व्यवसाय
 </a>
@@ -1186,7 +1431,7 @@ footer p{
 </p>
 
 <p>
-एकता • सेवा • संस्कार • विकास
+{{ s['slogan'] }}
 </p>
 
 <br>
@@ -1272,7 +1517,7 @@ body{
             #1a0b03
         );
 
-    color:#ffe59b;
+    color:#ffe69a;
 
     padding:18px;
 
@@ -1287,13 +1532,14 @@ body{
 
     display:flex;
 
-    min-height:calc(100vh - 90px);
+    min-height:
+        calc(100vh - 90px);
 
 }
 
 .sidebar{
 
-    width:245px;
+    width:250px;
 
     background:#251207;
 
@@ -1311,11 +1557,11 @@ body{
 
     padding:11px;
 
-    border-radius:10px;
+    border-radius:9px;
 
     margin-bottom:6px;
 
-    font-weight:700;
+    font-weight:bold;
 
 }
 
@@ -1341,7 +1587,7 @@ body{
 
     background:white;
 
-    border-radius:18px;
+    border-radius:17px;
 
     padding:20px;
 
@@ -1365,7 +1611,7 @@ body{
             )
         );
 
-    gap:14px;
+    gap:13px;
 
 }
 
@@ -1385,7 +1631,8 @@ body{
 
 .full{
 
-    grid-column:1/-1;
+    grid-column:
+        1 / -1;
 
 }
 
@@ -1395,14 +1642,16 @@ textarea{
 
     width:100%;
 
-    padding:11px;
+    padding:10px;
 
     border:
-        1px solid #d8c294;
+        1px solid #d6c18d;
 
-    border-radius:9px;
+    border-radius:8px;
 
-    background:#fffdf7;
+    background:#fffdf8;
+
+    font-size:14px;
 
 }
 
@@ -1423,7 +1672,7 @@ button,
 
     cursor:pointer;
 
-    font-weight:800;
+    font-weight:bold;
 
     text-decoration:none;
 
@@ -1432,34 +1681,34 @@ button,
 }
 
 .gold{
-
-    background:#d7aa37;
-
-    color:#241405;
-
+    background:#d7a82e;
+    color:#251406;
 }
 
 .green{
-
     background:#16864c;
-
     color:white;
-
 }
 
 .red{
-
     background:#b5263d;
-
     color:white;
-
 }
 
 .blue{
-
     background:#2866d2;
-
     color:white;
+}
+
+.preview{
+
+    width:90px;
+
+    height:65px;
+
+    object-fit:cover;
+
+    border-radius:8px;
 
 }
 
@@ -1488,19 +1737,9 @@ td{
     padding:9px;
 
     border-bottom:
-        1px solid #eee0c6;
+        1px solid #eee2c8;
 
-}
-
-img.preview{
-
-    width:80px;
-
-    height:65px;
-
-    object-fit:cover;
-
-    border-radius:8px;
+    vertical-align:top;
 
 }
 
@@ -1508,7 +1747,7 @@ img.preview{
 
     padding:12px;
 
-    border-radius:10px;
+    border-radius:9px;
 
     background:#dff2e5;
 
@@ -1518,7 +1757,9 @@ img.preview{
 
 .error{
 
-    background:#ffe0e4;
+    background:#ffe1e4;
+
+    color:#8b1f30;
 
 }
 
@@ -1555,8 +1796,12 @@ img.preview{
 <div class="top">
 
 <h1>
-💎 मैढ़ स्वर्णकार समाज - Admin Panel
+💎 मैढ़ स्वर्णकार समाज
 </h1>
+
+<p>
+Admin Panel
+</p>
 
 </div>
 
@@ -1564,7 +1809,7 @@ img.preview{
 <div class="layout">
 
 
-<div class="sidebar">
+<aside class="sidebar">
 
 <a href="{{ url_for('admin_dashboard') }}">
 📊 Dashboard
@@ -1614,17 +1859,17 @@ img.preview{
     href="{{ url_for('home') }}"
     target="_blank"
 >
-🌐 Open Website
+🌐 Website
 </a>
 
 <a href="{{ url_for('admin_logout') }}">
 🚪 Logout
 </a>
 
-</div>
+</aside>
 
 
-<div class="main">
+<main class="main">
 
 {% with messages=get_flashed_messages(
     with_categories=true
@@ -1646,7 +1891,7 @@ img.preview{
 
 {{ body|safe }}
 
-</div>
+</main>
 
 
 </div>
@@ -1667,7 +1912,7 @@ def admin_page(title, body):
 
 
 # ============================================================
-# PUBLIC HOME
+# HOME
 # ============================================================
 
 @app.route("/")
@@ -1677,54 +1922,68 @@ def home():
 
     con = db()
 
-    events = con.execute("""
+    events = con.execute(
+        """
         SELECT *
         FROM events
         WHERE active=1
         ORDER BY id DESC
         LIMIT 3
-    """).fetchall()
+        """
+    ).fetchall()
 
-    news = con.execute("""
+    news_rows = con.execute(
+        """
         SELECT *
         FROM news
         WHERE active=1
         ORDER BY id DESC
         LIMIT 3
-    """).fetchall()
+        """
+    ).fetchall()
 
-    notices = con.execute("""
+    notices = con.execute(
+        """
         SELECT *
         FROM notices
         WHERE active=1
         ORDER BY id DESC
         LIMIT 5
-    """).fetchall()
+        """
+    ).fetchall()
 
-    gallery = con.execute("""
+    gallery_rows = con.execute(
+        """
         SELECT *
         FROM gallery
         WHERE active=1
         ORDER BY id DESC
         LIMIT 6
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
-        <div class="hero-small">
+
+        <div class="hero">
 
             <div class="hero-content">
+
+                <div class="badge">
+                    🙏 जय अजमीढ़ जी महाराज 🙏
+                </div>
 
                 <h2>
                     {{ s['samaj_name'] }}
                 </h2>
 
-                <p>
+                <h3>
                     {{ s['location'] }}
-                </p>
+                </h3>
 
                 <p>
                     {{ s['slogan'] }}
@@ -1732,8 +1991,7 @@ def home():
 
                 <br>
 
-                <div class="buttons"
-                     style="justify-content:center">
+                <div class="buttons center">
 
                     <a
                         class="btn gold"
@@ -1743,14 +2001,14 @@ def home():
                     </a>
 
                     <a
-                        class="btn green"
+                        class="btn blue"
                         href="{{ url_for('bhawan') }}"
                     >
                         🏢 समाज भवन
                     </a>
 
                     <a
-                        class="btn blue"
+                        class="btn green"
                         href="{{ url_for('events') }}"
                     >
                         🎉 कार्यक्रम
@@ -1763,8 +2021,10 @@ def home():
         </div>
 
 
-        <div class="panel"
-             style="margin-top:25px">
+        <br>
+
+
+        <div class="panel">
 
             <h2>
                 📢 महत्वपूर्ण सूचनाएँ
@@ -1794,9 +2054,13 @@ def home():
 
             {% else %}
 
-                <p class="muted">
-                    अभी कोई सूचना नहीं है।
-                </p>
+                <div class="card">
+
+                    <p class="muted">
+                        अभी कोई सूचना उपलब्ध नहीं है।
+                    </p>
+
+                </div>
 
             {% endfor %}
 
@@ -1808,7 +2072,7 @@ def home():
         <div class="panel">
 
             <h2>
-                🎉 आगामी / नवीन कार्यक्रम
+                🎉 नवीन कार्यक्रम
             </h2>
 
             <br>
@@ -1822,10 +2086,8 @@ def home():
                     {% if e['photo'] %}
 
                     <img
-                        src="{{ url_for(
-                            'uploaded_file',
-                            filename=e['photo']
-                        ) }}"
+                        src="{{ image_url(e['photo']) }}"
+                        alt="{{ e['title'] }}"
                     >
 
                     {% endif %}
@@ -1846,13 +2108,26 @@ def home():
 
             {% else %}
 
-                <p class="muted">
-                    अभी कोई कार्यक्रम नहीं है।
-                </p>
+                <div class="card">
+
+                    <p>
+                        अभी कोई कार्यक्रम उपलब्ध नहीं है।
+                    </p>
+
+                </div>
 
             {% endfor %}
 
             </div>
+
+            <br>
+
+            <a
+                class="btn gold"
+                href="{{ url_for('events') }}"
+            >
+                सभी कार्यक्रम देखें →
+            </a>
 
         </div>
 
@@ -1867,17 +2142,15 @@ def home():
 
             <div class="grid">
 
-            {% for n in news %}
+            {% for n in news_rows %}
 
                 <div class="card">
 
                     {% if n['photo'] %}
 
                     <img
-                        src="{{ url_for(
-                            'uploaded_file',
-                            filename=n['photo']
-                        ) }}"
+                        src="{{ image_url(n['photo']) }}"
+                        alt="{{ n['title'] }}"
                     >
 
                     {% endif %}
@@ -1892,6 +2165,16 @@ def home():
 
                 </div>
 
+            {% else %}
+
+                <div class="card">
+
+                    <p>
+                        अभी कोई समाचार उपलब्ध नहीं है।
+                    </p>
+
+                </div>
+
             {% endfor %}
 
             </div>
@@ -1902,22 +2185,20 @@ def home():
         <div class="panel">
 
             <h2>
-                📸 Latest Gallery
+                📸 नवीन Gallery
             </h2>
 
             <br>
 
             <div class="gallery">
 
-            {% for g in gallery %}
+            {% for g in gallery_rows %}
 
                 <div class="gallery-item">
 
                     <img
-                        src="{{ url_for(
-                            'uploaded_file',
-                            filename=g['photo']
-                        ) }}"
+                        src="{{ image_url(g['photo']) }}"
+                        alt="{{ g['title'] }}"
                     >
 
                     <div>
@@ -1930,16 +2211,32 @@ def home():
 
             </div>
 
+            <br>
+
+            <a
+                class="btn blue"
+                href="{{ url_for('gallery') }}"
+            >
+                पूरी Gallery देखें →
+            </a>
+
         </div>
 
         """,
 
         s=s,
+
         events=events,
-        news=news,
+
+        news_rows=news_rows,
+
         notices=notices,
-        gallery=gallery
+
+        gallery_rows=gallery_rows,
+
+        image_url=image_url
     )
+
 
     return public_page(
         "Home",
@@ -1956,44 +2253,29 @@ def about():
 
     s = get_settings()
 
-    body = f"""
+    body = render_template_string(
 
-    <div class="panel">
+        """
 
-        <h2>
-            🏛️ समाज के बारे में
-        </h2>
+        <div class="panel">
 
-        <br>
+            <h2>
+                🏛️ समाज के बारे में
+            </h2>
 
-        <p>
-            {safe(s['about']) or
-            'समाज का परिचय Admin Panel से भरा जाएगा।'}
-        </p>
+            <br>
 
-        <br>
-
-        <div class="buttons">
-
-            <a
-                class="btn gold"
-                href="{url_for('committee')}"
-            >
-                👔 Committee
-            </a>
-
-            <a
-                class="btn blue"
-                href="{url_for('members')}"
-            >
-                👥 Members
-            </a>
+            <p>
+                {{ s['about'] or
+                'समाज का परिचय Admin Panel से भरा जाएगा।' }}
+            </p>
 
         </div>
 
-    </div>
+        """,
 
-    """
+        s=s
+    )
 
     return public_page(
         "समाज के बारे में",
@@ -2010,59 +2292,94 @@ def bhawan():
 
     s = get_settings()
 
-    body = f"""
+    photo = (
+        s["bhawan_photo"]
+        or "samaj_bhawan.jpg"
+    )
 
-    <div class="panel">
+    body = render_template_string(
 
-        <h2>
-            🏢 {safe(s['bhawan_name'])}
-        </h2>
+        """
 
-        <br>
+        <div class="panel">
 
-        <img
-            class="info-photo"
-            src="{url_for(
-                'uploaded_file',
-                filename=s['bhawan_photo']
-            ) if s['bhawan_photo'] else
-            url_for('static',filename='samaj_bhawan.jpg')}"
-        >
+            <h2>
+                🏢 {{ s['bhawan_name'] }}
+            </h2>
 
-        <br><br>
+            <br>
 
-        <h3>
-            📍 Address
-        </h3>
+            {% if photo %}
 
-        <p>
-            {safe(s['bhawan_address']) or '-'}
-        </p>
+            <img
+                class="large-photo"
+                src="{{ image_url(photo) }}"
+                alt="समाज भवन"
+            >
 
-        <br>
+            {% endif %}
 
-        <h3>
-            ℹ️ भवन की जानकारी
-        </h3>
+            <br><br>
 
-        <p>
-            {safe(s['bhawan_details']) or
-            'भवन की जानकारी Admin Panel से भरी जाएगी।'}
-        </p>
+            <h3>
+                📍 Address
+            </h3>
 
-        <br>
+            <p>
+                {{ s['bhawan_address'] or '-' }}
+            </p>
 
-        <h3>
-            📞 संपर्क
-        </h3>
+            <br>
 
-        <p>
-            {safe(s['bhawan_phone']) or '-'}
-        </p>
+            <h3>
+                ℹ️ भवन की जानकारी
+            </h3>
 
-    </div>
+            <p>
+                {{ s['bhawan_details'] or
+                'भवन की जानकारी Admin Panel से भरी जाएगी।' }}
+            </p>
 
-    """
+            <br>
+
+            <h3>
+                📞 भवन संपर्क
+            </h3>
+
+            <p>
+                {{ s['bhawan_phone'] or '-' }}
+            </p>
+
+            <br>
+
+            <div class="buttons">
+
+                <a
+                    class="btn gold"
+                    href="{{ url_for('events') }}"
+                >
+                    🎉 कार्यक्रम
+                </a>
+
+                <a
+                    class="btn blue"
+                    href="{{ url_for('contact') }}"
+                >
+                    📞 Contact
+                </a>
+
+            </div>
+
+        </div>
+
+        """,
+
+        s=s,
+
+        photo=photo,
+
+        image_url=image_url
+    )
 
     return public_page(
         "समाज भवन",
@@ -2079,18 +2396,22 @@ def members():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM members
         WHERE active=1
         ORDER BY name
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2098,7 +2419,7 @@ def members():
             </h2>
 
             <p class="muted">
-                समाज के सदस्य एवं उनकी जानकारी
+                समाज के सदस्यों की जानकारी
             </p>
 
         </div>
@@ -2113,10 +2434,8 @@ def members():
                 {% if m['photo'] %}
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=m['photo']
-                    ) }}"
+                    src="{{ image_url(m['photo']) }}"
+                    alt="{{ m['name'] }}"
                 >
 
                 {% endif %}
@@ -2140,14 +2459,29 @@ def members():
                     {{ m['occupation'] }}
                 </p>
 
+                {% if m['mobile'] %}
+
+                <br>
+
+                <a
+                    class="btn green"
+                    href="tel:{{ m['mobile'] }}"
+                >
+                    📞 Contact
+                </a>
+
+                {% endif %}
+
             </div>
 
         {% else %}
 
             <div class="card">
+
                 <p>
                     अभी सदस्य जानकारी उपलब्ध नहीं है।
                 </p>
+
             </div>
 
         {% endfor %}
@@ -2156,7 +2490,9 @@ def members():
 
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
 
     return public_page(
@@ -2174,18 +2510,22 @@ def committee():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM committee
         WHERE active=1
         ORDER BY sort_order,name
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2204,10 +2544,8 @@ def committee():
                 {% if c['photo'] %}
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=c['photo']
-                    ) }}"
+                    src="{{ image_url(c['photo']) }}"
+                    alt="{{ c['name'] }}"
                 >
 
                 {% endif %}
@@ -2217,10 +2555,13 @@ def committee():
                 </h3>
 
                 <p>
+
                     <b>
                         पद:
                     </b>
+
                     {{ c['post'] }}
+
                 </p>
 
                 {% if c['mobile'] %}
@@ -2236,17 +2577,22 @@ def committee():
         {% else %}
 
             <div class="card">
+
                 <p>
-                    Committee details अभी नहीं भरी गई हैं।
+                    अभी Committee details उपलब्ध नहीं हैं।
                 </p>
+
             </div>
 
         {% endfor %}
 
         </div>
+
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
 
     return public_page(
@@ -2264,18 +2610,22 @@ def businesses():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM businesses
         WHERE active=1
         ORDER BY name
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2294,10 +2644,8 @@ def businesses():
                 {% if b['photo'] %}
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=b['photo']
-                    ) }}"
+                    src="{{ image_url(b['photo']) }}"
+                    alt="{{ b['name'] }}"
                 >
 
                 {% endif %}
@@ -2310,21 +2658,27 @@ def businesses():
                     <b>
                         संचालक:
                     </b>
+
                     {{ b['owner'] }}
+
                 </p>
 
                 <p>
                     <b>
                         Category:
                     </b>
+
                     {{ b['category'] }}
+
                 </p>
 
                 <p>
                     <b>
                         Address:
                     </b>
+
                     {{ b['address'] }}
+
                 </p>
 
                 <p>
@@ -2349,17 +2703,22 @@ def businesses():
         {% else %}
 
             <div class="card">
+
                 <p>
-                    अभी business directory खाली है।
+                    अभी Business Directory खाली है।
                 </p>
+
             </div>
 
         {% endfor %}
 
         </div>
+
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
 
     return public_page(
@@ -2377,18 +2736,22 @@ def events():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM events
         WHERE active=1
         ORDER BY event_date DESC,id DESC
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2407,10 +2770,8 @@ def events():
                 {% if e['photo'] %}
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=e['photo']
-                    ) }}"
+                    src="{{ image_url(e['photo']) }}"
+                    alt="{{ e['title'] }}"
                 >
 
                 {% endif %}
@@ -2454,17 +2815,22 @@ def events():
         {% else %}
 
             <div class="card">
+
                 <p>
                     अभी कोई कार्यक्रम उपलब्ध नहीं है।
                 </p>
+
             </div>
 
         {% endfor %}
 
         </div>
+
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
 
     return public_page(
@@ -2482,18 +2848,22 @@ def news():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM news
         WHERE active=1
         ORDER BY news_date DESC,id DESC
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2512,10 +2882,8 @@ def news():
                 {% if n['photo'] %}
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=n['photo']
-                    ) }}"
+                    src="{{ image_url(n['photo']) }}"
+                    alt="{{ n['title'] }}"
                 >
 
                 {% endif %}
@@ -2537,17 +2905,22 @@ def news():
         {% else %}
 
             <div class="card">
+
                 <p>
-                    अभी कोई समाचार नहीं है।
+                    अभी कोई समाचार उपलब्ध नहीं है।
                 </p>
+
             </div>
 
         {% endfor %}
 
         </div>
+
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
 
     return public_page(
@@ -2565,18 +2938,22 @@ def education():
 
     con = db()
 
-    rows = con.execute("""
+    rows = con.execute(
+        """
         SELECT *
         FROM education
         WHERE active=1
         ORDER BY id DESC
-    """).fetchall()
+        """
+    ).fetchall()
 
     con.close()
+
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -2594,7 +2971,7 @@ def education():
 
                 <div
                     style="
-                        font-size:45px;
+                        font-size:44px;
                         margin-bottom:10px;
                     "
                 >
@@ -2625,6 +3002,7 @@ def education():
         {% endfor %}
 
         </div>
+
         """,
 
         rows=rows
@@ -2637,13 +3015,108 @@ def education():
 
 
 # ============================================================
+# GALLERY
+# ============================================================
+
+@app.route("/gallery")
+def gallery():
+
+    con = db()
+
+    rows = con.execute(
+        """
+        SELECT *
+        FROM gallery
+        WHERE active=1
+        ORDER BY id DESC
+        """
+    ).fetchall()
+
+    con.close()
+
+
+    body = render_template_string(
+
+        """
+
+        <div class="panel">
+
+            <h2>
+                📸 समाज Gallery
+            </h2>
+
+            <p class="muted">
+                समाज भवन, धार्मिक एवं कार्यक्रमों की तस्वीरें
+            </p>
+
+        </div>
+
+
+        <div class="gallery">
+
+        {% for g in rows %}
+
+            <div class="gallery-item">
+
+                <img
+                    src="{{ image_url(g['photo']) }}"
+                    alt="{{ g['title'] }}"
+                >
+
+                <div>
+
+                    {{ g['title'] }}
+
+                    {% if g['category'] %}
+                        <br>
+                        <small>
+                            {{ g['category'] }}
+                        </small>
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="card">
+
+                <p>
+                    अभी Gallery खाली है।
+                </p>
+
+            </div>
+
+        {% endfor %}
+
+        </div>
+
+        """,
+
+        rows=rows,
+
+        image_url=image_url
+    )
+
+    return public_page(
+        "Gallery",
+        body
+    )
+
+
+# ============================================================
 # DONATION
 # ============================================================
 
-@app.route("/donation", methods=["GET", "POST"])
+@app.route(
+    "/donation",
+    methods=["GET", "POST"]
+)
 def donation():
 
     s = get_settings()
+
 
     if request.method == "POST":
 
@@ -2723,9 +3196,6 @@ def donation():
                 "success"
             )
 
-            return redirect(
-                url_for("donation")
-            )
 
         except Exception as e:
 
@@ -2735,140 +3205,174 @@ def donation():
             )
 
 
-    body = f"""
+    body = render_template_string(
 
-    <div class="panel">
+        """
 
-        <h2>
-            ❤️ समाज के लिए सहयोग
-        </h2>
+        {% with messages=get_flashed_messages(
+            with_categories=true
+        ) %}
 
-        <p>
-            {safe(s['donation_info']) or
-            'समाज के लिए सहयोग की जानकारी Admin Panel से भरी जाएगी।'}
-        </p>
+        {% for category,message in messages %}
 
-        <br>
+        <div class="panel">
 
-        <h3>
-            UPI ID
-        </h3>
+            <p>
+                {{ message }}
+            </p>
 
-        <p>
-            {safe(s['upi_id']) or '-'}
-        </p>
+        </div>
 
-    </div>
+        {% endfor %}
+
+        {% endwith %}
 
 
-    <div class="panel">
+        <div class="panel">
 
-        <h2>
-            Donation Record
-        </h2>
-
-        <form method="post">
-
-            <div class="two">
-
-                <div>
-
-                    <label>
-                        Donor Name
-                    </label>
-
-                    <input
-                        name="name"
-                        required
-                    >
-
-                </div>
-
-
-                <div>
-
-                    <label>
-                        Amount
-                    </label>
-
-                    <input
-                        type="number"
-                        step="0.01"
-                        min="1"
-                        name="amount"
-                        required
-                    >
-
-                </div>
-
-
-                <div>
-
-                    <label>
-                        Purpose
-                    </label>
-
-                    <input
-                        name="purpose"
-                    >
-
-                </div>
-
-
-                <div>
-
-                    <label>
-                        Mode
-                    </label>
-
-                    <select name="mode">
-
-                        <option>
-                            UPI
-                        </option>
-
-                        <option>
-                            Cash
-                        </option>
-
-                        <option>
-                            Bank
-                        </option>
-
-                        <option>
-                            Cheque
-                        </option>
-
-                    </select>
-
-                </div>
-
-            </div>
+            <h2>
+                ❤️ समाज के लिए सहयोग
+            </h2>
 
             <br>
 
-            <label>
-                Note
-            </label>
+            <p>
+                {{ s['donation_info'] or
+                'समाज के विकास और सेवा कार्यों में सहयोग करें।' }}
+            </p>
 
-            <textarea
-                name="note"
-            ></textarea>
+            <br>
 
-            <br><br>
+            <h3>
+                UPI ID
+            </h3>
 
-            <button
-                class="btn green"
-                type="submit"
-            >
-                ❤️ Submit
-            </button>
+            <p>
+                {{ s['upi_id'] or '-' }}
+            </p>
 
-        </form>
+        </div>
 
-    </div>
 
-    """
+        <div class="panel">
+
+            <h2>
+                Donation Record
+            </h2>
+
+            <br>
+
+            <form method="post">
+
+                <div class="two">
+
+                    <div>
+
+                        <label>
+                            Donor Name
+                        </label>
+
+                        <input
+                            name="name"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div>
+
+                        <label>
+                            Amount
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="1"
+                            name="amount"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div>
+
+                        <label>
+                            Purpose
+                        </label>
+
+                        <input
+                            name="purpose"
+                        >
+
+                    </div>
+
+
+                    <div>
+
+                        <label>
+                            Mode
+                        </label>
+
+                        <select
+                            name="mode"
+                        >
+
+                            <option>
+                                UPI
+                            </option>
+
+                            <option>
+                                Cash
+                            </option>
+
+                            <option>
+                                Bank
+                            </option>
+
+                            <option>
+                                Cheque
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+
+                <br>
+
+
+                <label>
+                    Note
+                </label>
+
+                <textarea
+                    name="note"
+                ></textarea>
+
+
+                <br><br>
+
+
+                <button
+                    class="btn green"
+                    type="submit"
+                >
+                    ❤️ Submit
+                </button>
+
+            </form>
+
+        </div>
+
+        """,
+
+        s=s
+    )
 
     return public_page(
         "Donation",
@@ -2885,107 +3389,138 @@ def contact():
 
     s = get_settings()
 
-    body = f"""
 
-    <div class="panel">
+    body = render_template_string(
 
-        <h2>
-            📞 Contact
-        </h2>
+        """
 
-        <br>
+        <div class="grid">
 
-        <p>
-            <b>
-                Address:
-            </b>
+            <div class="card">
 
-            {safe(s['bhawan_address']) or '-'}
-        </p>
+                <h3>
+                    📍 पता
+                </h3>
 
-        <p>
-            <b>
-                Phone:
-            </b>
+                <p>
+                    {{ s['bhawan_address'] or
+                    s['location'] }}
+                </p>
 
-            {safe(s['phone']) or '-'}
-        </p>
+            </div>
 
-        <p>
-            <b>
-                WhatsApp:
-            </b>
 
-            {safe(s['whatsapp']) or '-'}
-        </p>
+            <div class="card">
 
-        <p>
-            <b>
-                Email:
-            </b>
+                <h3>
+                    📞 Phone
+                </h3>
 
-            {safe(s['email']) or '-'}
-        </p>
+                <p>
+                    {{ s['phone'] or '-' }}
+                </p>
 
-        <br>
+                {% if s['phone'] %}
 
-        <div class="buttons">
+                <br>
 
-            {
-                (
-                    f'<a class="btn green" '
-                    f'href="tel:{safe(s["phone"])}">'
-                    f'📞 Call</a>'
-                )
-                if s["phone"]
-                else ""
-            }
+                <a
+                    class="btn green"
+                    href="tel:{{ s['phone'] }}"
+                >
+                    📞 Call
+                </a>
 
-            {
-                (
-                    f'<a class="btn green" '
-                    f'target="_blank" '
-                    f'href="https://wa.me/'
-                    f'{safe(s["whatsapp"]).replace("+","").replace(" ","")}'
-                    f'">💬 WhatsApp</a>'
-                )
-                if s["whatsapp"]
-                else ""
-            }
+                {% endif %}
 
-            {
-                (
-                    f'<a class="btn blue" '
-                    f'target="_blank" '
-                    f'href="{safe(s["map_url"])}">'
-                    f'📍 Google Maps</a>'
-                )
-                if s["map_url"]
-                else ""
-            }
+            </div>
+
+
+            <div class="card">
+
+                <h3>
+                    💬 WhatsApp
+                </h3>
+
+                <p>
+                    {{ s['whatsapp'] or '-' }}
+                </p>
+
+                {% if s['whatsapp'] %}
+
+                <br>
+
+                <a
+                    class="btn green"
+                    target="_blank"
+                    href="https://wa.me/{{ s['whatsapp']|replace('+','')|replace(' ','')|replace('-','') }}"
+                >
+                    💬 WhatsApp
+                </a>
+
+                {% endif %}
+
+            </div>
+
+
+            <div class="card">
+
+                <h3>
+                    📧 Email
+                </h3>
+
+                <p>
+                    {{ s['email'] or '-' }}
+                </p>
+
+                {% if s['email'] %}
+
+                <br>
+
+                <a
+                    class="btn blue"
+                    href="mailto:{{ s['email'] }}"
+                >
+                    📧 Email
+                </a>
+
+                {% endif %}
+
+            </div>
 
         </div>
 
-    </div>
 
-    """
+        {% if s['map_url'] %}
+
+        <div class="panel">
+
+            <h2>
+                🗺️ Location
+            </h2>
+
+            <br>
+
+            <a
+                class="btn blue"
+                target="_blank"
+                href="{{ s['map_url'] }}"
+            >
+                📍 Open Google Maps
+            </a>
+
+        </div>
+
+        {% endif %}
+
+        """,
+
+        s=s
+    )
 
     return public_page(
         "Contact",
         body
-    )
-
-
-# ============================================================
-# UPLOADS
-# ============================================================
-
-@app.route("/uploads/<path:filename>")
-def uploaded_file(filename):
-
-    return send_from_directory(
-        UPLOAD_DIR,
-        filename
     )
 
 
@@ -3036,17 +3571,18 @@ def admin_login():
             )
 
 
-        flash(
-            "Wrong username ya password.",
-            "error"
-        )
+        error = "Wrong username ya password."
+
+    else:
+
+        error = ""
 
 
-    body = """
+    body = f"""
 
     <div
         style="
-            max-width:420px;
+            max-width:430px;
             margin:60px auto;
         "
     >
@@ -3057,7 +3593,28 @@ def admin_login():
                 🔐 Admin Login
             </h2>
 
-            <br>
+            {
+
+                f'''
+                <div
+                    style="
+                        background:#ffe0e4;
+                        padding:12px;
+                        border-radius:8px;
+                    "
+                >
+                    {safe(error)}
+                </div>
+
+                <br>
+                '''
+
+                if error
+
+                else ""
+
+            }
+
 
             <form method="post">
 
@@ -3088,7 +3645,7 @@ def admin_login():
                     class="btn green"
                     type="submit"
                 >
-                    LOGIN
+                    🔐 LOGIN
                 </button>
 
             </form>
@@ -3099,11 +3656,10 @@ def admin_login():
 
     """
 
-    return render_template_string(
-        PUBLIC_HTML,
-        title="Admin Login",
-        body=body,
-        s=get_settings()
+
+    return public_page(
+        "Admin Login",
+        body
     )
 
 
@@ -3132,31 +3688,61 @@ def admin_dashboard():
     con = db()
 
     members_count = con.execute(
-        "SELECT COUNT(*) FROM members WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM members
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     committee_count = con.execute(
-        "SELECT COUNT(*) FROM committee WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM committee
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     business_count = con.execute(
-        "SELECT COUNT(*) FROM businesses WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM businesses
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     event_count = con.execute(
-        "SELECT COUNT(*) FROM events WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM events
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     news_count = con.execute(
-        "SELECT COUNT(*) FROM news WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM news
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     gallery_count = con.execute(
-        "SELECT COUNT(*) FROM gallery WHERE active=1"
+        """
+        SELECT COUNT(*)
+        FROM gallery
+        WHERE active=1
+        """
     ).fetchone()[0]
 
     donation_total = con.execute(
-        "SELECT COALESCE(SUM(amount),0) FROM donations"
+        """
+        SELECT COALESCE(
+            SUM(amount),
+            0
+        )
+        FROM donations
+        """
     ).fetchone()[0]
 
     con.close()
@@ -3171,7 +3757,15 @@ def admin_dashboard():
         </h2>
 
         <p>
-            Welcome, {safe(session.get('admin_user'))}
+            Welcome,
+            <b>
+                {safe(
+                    session.get(
+                        "admin_user",
+                        ""
+                    )
+                )}
+            </b>
         </p>
 
     </div>
@@ -3180,405 +3774,50 @@ def admin_dashboard():
     <div class="grid">
 
         <div class="panel">
-            <h3>Members</h3>
+            <h3>👥 Members</h3>
             <h2>{members_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>Committee</h3>
+            <h3>👔 Committee</h3>
             <h2>{committee_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>Businesses</h3>
+            <h3>🏪 Businesses</h3>
             <h2>{business_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>Events</h3>
+            <h3>🎉 Events</h3>
             <h2>{event_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>News</h3>
+            <h3>📰 News</h3>
             <h2>{news_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>Gallery</h3>
+            <h3>📸 Gallery</h3>
             <h2>{gallery_count}</h2>
         </div>
 
         <div class="panel">
-            <h3>Total Donation</h3>
-            <h2>{money(donation_total)}</h2>
+            <h3>❤️ Donations</h3>
+            <h2>
+                {money(donation_total)}
+            </h2>
         </div>
 
     </div>
 
     """
+
 
     return admin_page(
-        "Dashboard",
+        "Admin Dashboard",
         body
-    )
-
-
-# ============================================================
-# ADMIN COMMON TEMPLATE
-# ============================================================
-
-def admin_page(title, body):
-
-    template = """
-
-    <!DOCTYPE html>
-
-    <html lang="hi">
-
-    <head>
-
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width,initial-scale=1"
-    >
-
-    <title>
-    {{ title }}
-    </title>
-
-    <style>
-
-    *{
-        box-sizing:border-box;
-    }
-
-    body{
-        margin:0;
-        font-family:
-            Arial,
-            sans-serif;
-
-        background:
-            linear-gradient(
-                135deg,
-                #fffaf0,
-                #f0d68e
-            );
-
-        color:#2c1909;
-    }
-
-    .top{
-        background:
-            linear-gradient(
-                135deg,
-                #190a02,
-                #623709,
-                #190a02
-            );
-
-        color:#ffe69a;
-
-        text-align:center;
-
-        padding:18px;
-
-        border-bottom:
-            3px solid #d6a62f;
-    }
-
-    .layout{
-        display:flex;
-        min-height:calc(100vh - 82px);
-    }
-
-    .sidebar{
-        width:245px;
-        background:#251207;
-        padding:15px;
-    }
-
-    .sidebar a{
-        display:block;
-
-        text-decoration:none;
-
-        color:white;
-
-        padding:11px;
-
-        margin-bottom:6px;
-
-        border-radius:9px;
-
-        font-weight:bold;
-    }
-
-    .sidebar a:hover{
-        background:#d7a82f;
-        color:#241306;
-    }
-
-    .main{
-        flex:1;
-        padding:22px;
-    }
-
-    .panel{
-        background:white;
-        border-radius:16px;
-        padding:20px;
-        margin-bottom:18px;
-        box-shadow:
-            0 8px 25px #5b3a1318;
-    }
-
-    .grid{
-        display:grid;
-        grid-template-columns:
-            repeat(
-                auto-fit,
-                minmax(
-                    220px,
-                    1fr
-                )
-            );
-        gap:13px;
-    }
-
-    .form{
-        display:grid;
-        grid-template-columns:
-            repeat(
-                2,
-                1fr
-            );
-        gap:12px;
-    }
-
-    .full{
-        grid-column:1/-1;
-    }
-
-    input,
-    select,
-    textarea{
-        width:100%;
-        padding:10px;
-        border:
-            1px solid #d6c08e;
-        border-radius:8px;
-        background:#fffdf8;
-    }
-
-    textarea{
-        min-height:100px;
-    }
-
-    button,
-    .btn{
-        border:0;
-        border-radius:8px;
-        padding:10px 14px;
-        text-decoration:none;
-        cursor:pointer;
-        font-weight:bold;
-        display:inline-block;
-    }
-
-    .gold{
-        background:#d7a82e;
-        color:#251406;
-    }
-
-    .green{
-        background:#16854b;
-        color:white;
-    }
-
-    .red{
-        background:#b4263d;
-        color:white;
-    }
-
-    .blue{
-        background:#2c66cb;
-        color:white;
-    }
-
-    table{
-        width:100%;
-        border-collapse:collapse;
-    }
-
-    th{
-        background:#49270f;
-        color:#ffe79a;
-        padding:10px;
-        text-align:left;
-    }
-
-    td{
-        padding:9px;
-        border-bottom:
-            1px solid #eee2c8;
-    }
-
-    .alert{
-        padding:12px;
-        background:#dff2e6;
-        border-radius:9px;
-        margin-bottom:12px;
-    }
-
-    .error{
-        background:#ffe2e6;
-        color:#8c1f31;
-    }
-
-    .preview{
-        width:90px;
-        height:65px;
-        object-fit:cover;
-        border-radius:8px;
-    }
-
-    @media(max-width:800px){
-
-        .layout{
-            display:block;
-        }
-
-        .sidebar{
-            width:100%;
-        }
-
-        .form{
-            grid-template-columns:
-                1fr;
-        }
-
-    }
-
-    </style>
-
-    </head>
-
-    <body>
-
-    <div class="top">
-
-        <h1>
-            💎 मैढ़ स्वर्णकार समाज
-        </h1>
-
-        <p>
-            Admin Panel
-        </p>
-
-    </div>
-
-
-    <div class="layout">
-
-        <aside class="sidebar">
-
-            <a href="{{ url_for('admin_dashboard') }}">
-                📊 Dashboard
-            </a>
-
-            <a href="{{ url_for('admin_settings') }}">
-                ⚙️ Society Details
-            </a>
-
-            <a href="{{ url_for('admin_members') }}">
-                👥 Members
-            </a>
-
-            <a href="{{ url_for('admin_committee') }}">
-                👔 Committee
-            </a>
-
-            <a href="{{ url_for('admin_businesses') }}">
-                🏪 Businesses
-            </a>
-
-            <a href="{{ url_for('admin_events') }}">
-                🎉 Events
-            </a>
-
-            <a href="{{ url_for('admin_news') }}">
-                📰 News
-            </a>
-
-            <a href="{{ url_for('admin_notices') }}">
-                📢 Notices
-            </a>
-
-            <a href="{{ url_for('admin_education') }}">
-                🎓 Education
-            </a>
-
-            <a href="{{ url_for('admin_gallery') }}">
-                📸 Gallery
-            </a>
-
-            <a href="{{ url_for('admin_donations') }}">
-                ❤️ Donations
-            </a>
-
-            <a
-                href="{{ url_for('home') }}"
-                target="_blank"
-            >
-                🌐 Website
-            </a>
-
-            <a href="{{ url_for('admin_logout') }}">
-                🚪 Logout
-            </a>
-
-        </aside>
-
-
-        <main class="main">
-
-        {% with messages=get_flashed_messages(
-            with_categories=true
-        ) %}
-
-        {% for category,message in messages %}
-
-        <div
-            class="alert
-            {{ 'error' if category == 'error' else '' }}"
-        >
-            {{ message }}
-        </div>
-
-        {% endfor %}
-
-        {% endwith %}
-
-        {{ body|safe }}
-
-        </main>
-
-    </div>
-
-    </body>
-
-    </html>
-
-    """
-
-    return render_template_string(
-        template,
-        title=title,
-        body=body
     )
 
 
@@ -3595,82 +3834,174 @@ def admin_settings():
 
     con = db()
 
+
     if request.method == "POST":
 
-        hero_photo = save_upload(
-            request.files.get("hero_photo")
-        )
+        try:
 
-        bhagwan_photo = save_upload(
-            request.files.get("bhagwan_photo")
-        )
+            current = con.execute(
+                "SELECT * FROM settings WHERE id=1"
+            ).fetchone()
 
-        bhawan_photo = save_upload(
-            request.files.get("bhawan_photo")
-        )
 
-        current = con.execute(
-            "SELECT * FROM settings WHERE id=1"
-        ).fetchone()
-
-        hero = hero_photo or current["hero_photo"]
-        bhagwan = bhagwan_photo or current["bhagwan_photo"]
-        bhawan = bhawan_photo or current["bhawan_photo"]
-
-        con.execute(
-            """
-            UPDATE settings
-            SET
-                samaj_name=?,
-                location=?,
-                slogan=?,
-                about=?,
-                bhawan_name=?,
-                bhawan_address=?,
-                bhawan_details=?,
-                bhawan_phone=?,
-                phone=?,
-                whatsapp=?,
-                email=?,
-                map_url=?,
-                donation_info=?,
-                upi_id=?,
-                hero_photo=?,
-                bhagwan_photo=?,
-                bhawan_photo=?
-            WHERE id=1
-            """,
-            (
-                request.form.get("samaj_name","").strip(),
-                request.form.get("location","").strip(),
-                request.form.get("slogan","").strip(),
-                request.form.get("about","").strip(),
-                request.form.get("bhawan_name","").strip(),
-                request.form.get("bhawan_address","").strip(),
-                request.form.get("bhawan_details","").strip(),
-                request.form.get("bhawan_phone","").strip(),
-                request.form.get("phone","").strip(),
-                request.form.get("whatsapp","").strip(),
-                request.form.get("email","").strip(),
-                request.form.get("map_url","").strip(),
-                request.form.get("donation_info","").strip(),
-                request.form.get("upi_id","").strip(),
-                hero,
-                bhagwan,
-                bhawan
+            hero_file = save_upload(
+                request.files.get(
+                    "hero_photo"
+                )
             )
-        )
 
-        con.commit()
+            bhagwan_file = save_upload(
+                request.files.get(
+                    "bhagwan_photo"
+                )
+            )
 
-        flash(
-            "Society details update ho gayi.",
-            "success"
-        )
+            bhawan_file = save_upload(
+                request.files.get(
+                    "bhawan_photo"
+                )
+            )
 
-        return redirect(
-            url_for("admin_settings")
-        )
+
+            hero = (
+                hero_file
+                or
+                current["hero_photo"]
+            )
+
+            bhagwan = (
+                bhagwan_file
+                or
+                current["bhagwan_photo"]
+            )
+
+            bhawan = (
+                bhawan_file
+                or
+                current["bhawan_photo"]
+            )
+
+
+            con.execute(
+                """
+                UPDATE settings
+                SET
+                    samaj_name=?,
+                    location=?,
+                    slogan=?,
+                    about=?,
+                    bhawan_name=?,
+                    bhawan_address=?,
+                    bhawan_details=?,
+                    bhawan_phone=?,
+                    phone=?,
+                    whatsapp=?,
+                    email=?,
+                    map_url=?,
+                    donation_info=?,
+                    upi_id=?,
+                    hero_photo=?,
+                    bhagwan_photo=?,
+                    bhawan_photo=?
+                WHERE id=1
+                """,
+                (
+                    request.form.get(
+                        "samaj_name",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "location",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "slogan",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "about",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "bhawan_name",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "bhawan_address",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "bhawan_details",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "bhawan_phone",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "phone",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "whatsapp",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "email",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "map_url",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "donation_info",
+                        ""
+                    ).strip(),
+
+                    request.form.get(
+                        "upi_id",
+                        ""
+                    ).strip(),
+
+                    hero,
+
+                    bhagwan,
+
+                    bhawan
+                )
+            )
+
+
+            con.commit()
+
+
+            flash(
+                "Society details update ho gayi.",
+                "success"
+            )
+
+
+        except Exception as e:
+
+            con.rollback()
+
+            flash(
+                str(e),
+                "error"
+            )
 
 
     row = con.execute(
@@ -3683,6 +4014,7 @@ def admin_settings():
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -3697,139 +4029,248 @@ def admin_settings():
                 <div class="form">
 
                     <div>
-                        <label>Society Name</label>
+
+                        <label>
+                            Society Name
+                        </label>
+
                         <input
                             name="samaj_name"
                             value="{{ r['samaj_name'] }}"
                             required
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Location</label>
+
+                        <label>
+                            Location
+                        </label>
+
                         <input
                             name="location"
                             value="{{ r['location'] }}"
                         >
+
                     </div>
 
+
                     <div class="full">
-                        <label>Slogan</label>
+
+                        <label>
+                            Slogan
+                        </label>
+
                         <input
                             name="slogan"
                             value="{{ r['slogan'] }}"
                         >
+
                     </div>
+
 
                     <div class="full">
-                        <label>About</label>
-                        <textarea name="about">{{ r['about'] }}</textarea>
+
+                        <label>
+                            About Society
+                        </label>
+
+                        <textarea
+                            name="about"
+                        >{{ r['about'] }}</textarea>
+
                     </div>
 
+
                     <div>
-                        <label>Bhawan Name</label>
+
+                        <label>
+                            Bhawan Name
+                        </label>
+
                         <input
                             name="bhawan_name"
                             value="{{ r['bhawan_name'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Bhawan Phone</label>
+
+                        <label>
+                            Bhawan Phone
+                        </label>
+
                         <input
                             name="bhawan_phone"
                             value="{{ r['bhawan_phone'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Bhawan Address</label>
+
+                        <label>
+                            Bhawan Address
+                        </label>
+
                         <input
                             name="bhawan_address"
                             value="{{ r['bhawan_address'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Phone</label>
+
+                        <label>
+                            Phone
+                        </label>
+
                         <input
                             name="phone"
                             value="{{ r['phone'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>WhatsApp</label>
+
+                        <label>
+                            WhatsApp
+                        </label>
+
                         <input
                             name="whatsapp"
                             value="{{ r['whatsapp'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Email</label>
+
+                        <label>
+                            Email
+                        </label>
+
                         <input
                             name="email"
                             value="{{ r['email'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Google Map URL</label>
+
+                        <label>
+                            Google Maps URL
+                        </label>
+
                         <input
                             name="map_url"
                             value="{{ r['map_url'] }}"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>UPI ID</label>
+
+                        <label>
+                            UPI ID
+                        </label>
+
                         <input
                             name="upi_id"
                             value="{{ r['upi_id'] }}"
                         >
+
                     </div>
 
-                    <div class="full">
-                        <label>Bhawan Details</label>
-                        <textarea name="bhawan_details">{{ r['bhawan_details'] }}</textarea>
-                    </div>
 
                     <div class="full">
-                        <label>Donation Information</label>
-                        <textarea name="donation_info">{{ r['donation_info'] }}</textarea>
+
+                        <label>
+                            Bhawan Details
+                        </label>
+
+                        <textarea
+                            name="bhawan_details"
+                        >{{ r['bhawan_details'] }}</textarea>
+
                     </div>
+
+
+                    <div class="full">
+
+                        <label>
+                            Donation Information
+                        </label>
+
+                        <textarea
+                            name="donation_info"
+                        >{{ r['donation_info'] }}</textarea>
+
+                    </div>
+
 
                     <div>
-                        <label>Ajmiढ़ Ji / Hero Photo</label>
+
+                        <label>
+                            Ajmiढ़ Ji Maharaj Photo
+                        </label>
+
                         <input
                             type="file"
                             name="hero_photo"
                             accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Bhagwan Photo</label>
+
+                        <label>
+                            Bhagwan Photo
+                        </label>
+
                         <input
                             type="file"
                             name="bhagwan_photo"
                             accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
+
                     </div>
 
+
                     <div>
-                        <label>Samaj Bhawan Photo</label>
+
+                        <label>
+                            Samaj Bhawan Photo
+                        </label>
+
                         <input
                             type="file"
                             name="bhawan_photo"
                             accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
+
                     </div>
 
                 </div>
 
+
                 <br>
+
 
                 <button
                     class="btn green"
@@ -3841,10 +4282,12 @@ def admin_settings():
             </form>
 
         </div>
+
         """,
 
         r=row
     )
+
 
     return admin_page(
         "Society Details",
@@ -3865,11 +4308,14 @@ def admin_members():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -3882,14 +4328,18 @@ def admin_members():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
 
                 con.execute(
@@ -3906,22 +4356,49 @@ def admin_members():
                     VALUES(?,?,?,?,?,?,?)
                     """,
                     (
-                        request.form.get("name","").strip(),
-                        request.form.get("mobile","").strip(),
-                        request.form.get("city","").strip(),
-                        request.form.get("village","").strip(),
-                        request.form.get("occupation","").strip(),
-                        request.form.get("family","").strip(),
+                        request.form.get(
+                            "name",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "mobile",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "city",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "village",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "occupation",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "family",
+                            ""
+                        ).strip(),
+
                         photo
                     )
                 )
 
+
             con.commit()
+
 
             flash(
                 "Member operation successful.",
                 "success"
             )
+
 
         except Exception as e:
 
@@ -3942,12 +4419,14 @@ def admin_members():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -3963,7 +4442,10 @@ def admin_members():
 
                     <div>
                         <label>Name</label>
-                        <input name="name" required>
+                        <input
+                            name="name"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -3991,13 +4473,15 @@ def admin_members():
                         <input
                             type="file"
                             name="photo"
-                            accept=".jpg,.jpeg,.png,.webp"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
                     </div>
 
                     <div class="full">
                         <label>Family Details</label>
-                        <textarea name="family"></textarea>
+                        <textarea
+                            name="family"
+                        ></textarea>
                     </div>
 
                 </div>
@@ -4020,85 +4504,106 @@ def admin_members():
 
             <div style="overflow-x:auto">
 
-            <table>
+                <table>
 
-                <tr>
-                    <th>Photo</th>
-                    <th>Name</th>
-                    <th>Mobile</th>
-                    <th>City</th>
-                    <th>Occupation</th>
-                    <th>Action</th>
-                </tr>
+                    <tr>
 
-                {% for r in rows %}
+                        <th>
+                            Photo
+                        </th>
 
-                <tr>
+                        <th>
+                            Name
+                        </th>
 
-                    <td>
+                        <th>
+                            Mobile
+                        </th>
 
-                    {% if r['photo'] %}
+                        <th>
+                            City
+                        </th>
 
-                        <img
-                            class="preview"
-                            src="{{ url_for(
-                                'uploaded_file',
-                                filename=r['photo']
-                            ) }}"
-                        >
+                        <th>
+                            Occupation
+                        </th>
 
-                    {% endif %}
+                        <th>
+                            Action
+                        </th>
 
-                    </td>
+                    </tr>
 
-                    <td>
-                        {{ r['name'] }}
-                    </td>
 
-                    <td>
-                        {{ r['mobile'] }}
-                    </td>
+                    {% for r in rows %}
 
-                    <td>
-                        {{ r['city'] }}
-                    </td>
+                    <tr>
 
-                    <td>
-                        {{ r['occupation'] }}
-                    </td>
+                        <td>
 
-                    <td>
+                            {% if r['photo'] %}
 
-                        <form method="post">
-
-                            <input
-                                type="hidden"
-                                name="action"
-                                value="delete"
+                            <img
+                                class="preview"
+                                src="{{ image_url(
+                                    r['photo']
+                                ) }}"
                             >
 
-                            <input
-                                type="hidden"
-                                name="id"
-                                value="{{ r['id'] }}"
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ r['name'] }}
+                        </td>
+
+                        <td>
+                            {{ r['mobile'] }}
+                        </td>
+
+                        <td>
+                            {{ r['city'] }}
+                        </td>
+
+                        <td>
+                            {{ r['occupation'] }}
+                        </td>
+
+                        <td>
+
+                            <form
+                                method="post"
                             >
 
-                            <button
-                                class="red"
-                                type="submit"
-                            >
-                                DELETE
-                            </button>
+                                <input
+                                    type="hidden"
+                                    name="action"
+                                    value="delete"
+                                >
 
-                        </form>
+                                <input
+                                    type="hidden"
+                                    name="id"
+                                    value="{{ r['id'] }}"
+                                >
 
-                    </td>
+                                <button
+                                    class="btn red"
+                                    type="submit"
+                                >
+                                    DELETE
+                                </button>
 
-                </tr>
+                            </form>
 
-                {% endfor %}
+                        </td>
 
-            </table>
+                    </tr>
+
+                    {% endfor %}
+
+                </table>
 
             </div>
 
@@ -4106,8 +4611,11 @@ def admin_members():
 
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
+
 
     return admin_page(
         "Members",
@@ -4128,11 +4636,14 @@ def admin_committee():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -4145,14 +4656,18 @@ def admin_committee():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
 
                 con.execute(
@@ -4167,10 +4682,23 @@ def admin_committee():
                     VALUES(?,?,?,?,?)
                     """,
                     (
-                        request.form.get("name","").strip(),
-                        request.form.get("post","").strip(),
-                        request.form.get("mobile","").strip(),
+                        request.form.get(
+                            "name",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "post",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "mobile",
+                            ""
+                        ).strip(),
+
                         photo,
+
                         int(
                             request.form.get(
                                 "sort_order",
@@ -4180,7 +4708,15 @@ def admin_committee():
                     )
                 )
 
+
             con.commit()
+
+
+            flash(
+                "Committee operation successful.",
+                "success"
+            )
+
 
         except Exception as e:
 
@@ -4201,12 +4737,14 @@ def admin_committee():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -4222,7 +4760,10 @@ def admin_committee():
 
                     <div>
                         <label>Name</label>
-                        <input name="name" required>
+                        <input
+                            name="name"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -4253,7 +4794,7 @@ def admin_committee():
                         <input
                             type="file"
                             name="photo"
-                            accept=".jpg,.jpeg,.png,.webp"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
                     </div>
 
@@ -4275,69 +4816,87 @@ def admin_committee():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Name</th>
-                <th>Post</th>
-                <th>Mobile</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Name
+                    </th>
 
-            <tr>
+                    <th>
+                        Post
+                    </th>
 
-                <td>
-                    {{ r['name'] }}
-                </td>
+                    <th>
+                        Mobile
+                    </th>
 
-                <td>
-                    {{ r['post'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['mobile'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
+                <tr>
+
+                    <td>
+                        {{ r['name'] }}
+                    </td>
+
+                    <td>
+                        {{ r['post'] }}
+                    </td>
+
+                    <td>
+                        {{ r['mobile'] }}
+                    </td>
+
+                    <td>
+
+                        <form
+                            method="post"
                         >
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
 
-                    </form>
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
 
-                </td>
+                        </form>
 
-            </tr>
+                    </td>
 
-            {% endfor %}
+                </tr>
 
-        </table>
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "Committee",
@@ -4358,11 +4917,14 @@ def admin_businesses():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -4375,14 +4937,18 @@ def admin_businesses():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
 
                 con.execute(
@@ -4399,17 +4965,43 @@ def admin_businesses():
                     VALUES(?,?,?,?,?,?,?)
                     """,
                     (
-                        request.form.get("name","").strip(),
-                        request.form.get("owner","").strip(),
-                        request.form.get("category","").strip(),
-                        request.form.get("mobile","").strip(),
-                        request.form.get("address","").strip(),
-                        request.form.get("description","").strip(),
+                        request.form.get(
+                            "name",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "owner",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "category",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "mobile",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "address",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "description",
+                            ""
+                        ).strip(),
+
                         photo
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -4430,12 +5022,14 @@ def admin_businesses():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -4451,7 +5045,10 @@ def admin_businesses():
 
                     <div>
                         <label>Business Name</label>
-                        <input name="name" required>
+                        <input
+                            name="name"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -4479,13 +5076,15 @@ def admin_businesses():
                         <input
                             type="file"
                             name="photo"
-                            accept=".jpg,.jpeg,.png,.webp"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
                     </div>
 
                     <div class="full">
                         <label>Description</label>
-                        <textarea name="description"></textarea>
+                        <textarea
+                            name="description"
+                        ></textarea>
                     </div>
 
                 </div>
@@ -4506,74 +5105,93 @@ def admin_businesses():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Name</th>
-                <th>Owner</th>
-                <th>Category</th>
-                <th>Mobile</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Name
+                    </th>
 
-            <tr>
+                    <th>
+                        Owner
+                    </th>
 
-                <td>
-                    {{ r['name'] }}
-                </td>
+                    <th>
+                        Category
+                    </th>
 
-                <td>
-                    {{ r['owner'] }}
-                </td>
+                    <th>
+                        Mobile
+                    </th>
 
-                <td>
-                    {{ r['category'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['mobile'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
-                        >
+                <tr>
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                    <td>
+                        {{ r['name'] }}
+                    </td>
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                    <td>
+                        {{ r['owner'] }}
+                    </td>
 
-                    </form>
+                    <td>
+                        {{ r['category'] }}
+                    </td>
 
-                </td>
+                    <td>
+                        {{ r['mobile'] }}
+                    </td>
 
-            </tr>
+                    <td>
 
-            {% endfor %}
+                        <form method="post">
 
-        </table>
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
+
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
+
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "Businesses",
@@ -4594,11 +5212,14 @@ def admin_events():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -4611,14 +5232,18 @@ def admin_events():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
 
                 con.execute(
@@ -4635,17 +5260,43 @@ def admin_events():
                     VALUES(?,?,?,?,?,?,?)
                     """,
                     (
-                        request.form.get("title","").strip(),
-                        request.form.get("event_date","").strip(),
-                        request.form.get("event_time","").strip(),
-                        request.form.get("venue","").strip(),
-                        request.form.get("description","").strip(),
+                        request.form.get(
+                            "title",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "event_date",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "event_time",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "venue",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "description",
+                            ""
+                        ).strip(),
+
                         photo,
-                        request.form.get("registration_url","").strip()
+
+                        request.form.get(
+                            "registration_url",
+                            ""
+                        ).strip()
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -4666,12 +5317,14 @@ def admin_events():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -4687,7 +5340,10 @@ def admin_events():
 
                     <div>
                         <label>Title</label>
-                        <input name="title" required>
+                        <input
+                            name="title"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -4721,13 +5377,15 @@ def admin_events():
                         <input
                             type="file"
                             name="photo"
-                            accept=".jpg,.jpeg,.png,.webp"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
                     </div>
 
                     <div class="full">
                         <label>Description</label>
-                        <textarea name="description"></textarea>
+                        <textarea
+                            name="description"
+                        ></textarea>
                     </div>
 
                 </div>
@@ -4748,69 +5406,85 @@ def admin_events():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Title</th>
-                <th>Date</th>
-                <th>Venue</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Title
+                    </th>
 
-            <tr>
+                    <th>
+                        Date
+                    </th>
 
-                <td>
-                    {{ r['title'] }}
-                </td>
+                    <th>
+                        Venue
+                    </th>
 
-                <td>
-                    {{ r['event_date'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['venue'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
-                        >
+                <tr>
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                    <td>
+                        {{ r['title'] }}
+                    </td>
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                    <td>
+                        {{ r['event_date'] }}
+                    </td>
 
-                    </form>
+                    <td>
+                        {{ r['venue'] }}
+                    </td>
 
-                </td>
+                    <td>
 
-            </tr>
+                        <form method="post">
 
-            {% endfor %}
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
 
-        </table>
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
+
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "Events",
@@ -4831,11 +5505,14 @@ def admin_news():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -4848,14 +5525,18 @@ def admin_news():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
 
                 con.execute(
@@ -4869,14 +5550,28 @@ def admin_news():
                     VALUES(?,?,?,?)
                     """,
                     (
-                        request.form.get("title","").strip(),
-                        request.form.get("news_date","").strip(),
-                        request.form.get("body","").strip(),
+                        request.form.get(
+                            "title",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "news_date",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "body",
+                            ""
+                        ).strip(),
+
                         photo
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -4897,12 +5592,14 @@ def admin_news():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -4918,7 +5615,10 @@ def admin_news():
 
                     <div>
                         <label>Title</label>
-                        <input name="title" required>
+                        <input
+                            name="title"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -4934,13 +5634,15 @@ def admin_news():
                         <input
                             type="file"
                             name="photo"
-                            accept=".jpg,.jpeg,.png,.webp"
+                            accept=".jpg,.jpeg,.png,.webp,.gif"
                         >
                     </div>
 
                     <div class="full">
                         <label>News / Details</label>
-                        <textarea name="body"></textarea>
+                        <textarea
+                            name="body"
+                        ></textarea>
                     </div>
 
                 </div>
@@ -4961,64 +5663,77 @@ def admin_news():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Title</th>
-                <th>Date</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Title
+                    </th>
 
-            <tr>
+                    <th>
+                        Date
+                    </th>
 
-                <td>
-                    {{ r['title'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['news_date'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
-                        >
+                <tr>
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                    <td>
+                        {{ r['title'] }}
+                    </td>
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                    <td>
+                        {{ r['news_date'] }}
+                    </td>
 
-                    </form>
+                    <td>
 
-                </td>
+                        <form method="post">
 
-            </tr>
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
 
-            {% endfor %}
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
 
-        </table>
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "News",
@@ -5039,11 +5754,14 @@ def admin_notices():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -5056,7 +5774,9 @@ def admin_notices():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
@@ -5072,13 +5792,26 @@ def admin_notices():
                     VALUES(?,?,?)
                     """,
                     (
-                        request.form.get("title","").strip(),
-                        request.form.get("body","").strip(),
-                        request.form.get("notice_date","").strip()
+                        request.form.get(
+                            "title",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "body",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "notice_date",
+                            ""
+                        ).strip()
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -5099,12 +5832,14 @@ def admin_notices():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -5117,7 +5852,10 @@ def admin_notices():
 
                     <div>
                         <label>Title</label>
-                        <input name="title" required>
+                        <input
+                            name="title"
+                            required
+                        >
                     </div>
 
                     <div>
@@ -5130,7 +5868,9 @@ def admin_notices():
 
                     <div class="full">
                         <label>Notice</label>
-                        <textarea name="body"></textarea>
+                        <textarea
+                            name="body"
+                        ></textarea>
                     </div>
 
                 </div>
@@ -5151,64 +5891,77 @@ def admin_notices():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Title</th>
-                <th>Date</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Title
+                    </th>
 
-            <tr>
+                    <th>
+                        Date
+                    </th>
 
-                <td>
-                    {{ r['title'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['notice_date'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
-                        >
+                <tr>
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                    <td>
+                        {{ r['title'] }}
+                    </td>
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                    <td>
+                        {{ r['notice_date'] }}
+                    </td>
 
-                    </form>
+                    <td>
 
-                </td>
+                        <form method="post">
 
-            </tr>
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
 
-            {% endfor %}
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
 
-        </table>
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "Notices",
@@ -5229,11 +5982,14 @@ def admin_education():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -5246,7 +6002,9 @@ def admin_education():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
@@ -5262,13 +6020,26 @@ def admin_education():
                     VALUES(?,?,?)
                     """,
                     (
-                        request.form.get("title","").strip(),
-                        request.form.get("body","").strip(),
-                        request.form.get("icon","🎓").strip()
+                        request.form.get(
+                            "title",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "body",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "icon",
+                            "🎓"
+                        ).strip()
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -5289,12 +6060,14 @@ def admin_education():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -5306,12 +6079,19 @@ def admin_education():
                 <div class="form">
 
                     <div>
-                        <label>Title</label>
-                        <input name="title" required>
+                        <label>
+                            Title
+                        </label>
+                        <input
+                            name="title"
+                            required
+                        >
                     </div>
 
                     <div>
-                        <label>Icon / Emoji</label>
+                        <label>
+                            Icon / Emoji
+                        </label>
                         <input
                             name="icon"
                             value="🎓"
@@ -5319,8 +6099,15 @@ def admin_education():
                     </div>
 
                     <div class="full">
-                        <label>Details</label>
-                        <textarea name="body"></textarea>
+
+                        <label>
+                            Details
+                        </label>
+
+                        <textarea
+                            name="body"
+                        ></textarea>
+
                     </div>
 
                 </div>
@@ -5341,64 +6128,77 @@ def admin_education():
 
         <div class="panel">
 
-        <table>
+            <table>
 
-            <tr>
-                <th>Title</th>
-                <th>Icon</th>
-                <th>Action</th>
-            </tr>
+                <tr>
 
-            {% for r in rows %}
+                    <th>
+                        Title
+                    </th>
 
-            <tr>
+                    <th>
+                        Icon
+                    </th>
 
-                <td>
-                    {{ r['title'] }}
-                </td>
+                    <th>
+                        Action
+                    </th>
 
-                <td>
-                    {{ r['icon'] }}
-                </td>
+                </tr>
 
-                <td>
 
-                    <form method="post">
+                {% for r in rows %}
 
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="delete"
-                        >
+                <tr>
 
-                        <input
-                            type="hidden"
-                            name="id"
-                            value="{{ r['id'] }}"
-                        >
+                    <td>
+                        {{ r['title'] }}
+                    </td>
 
-                        <button
-                            class="red"
-                            type="submit"
-                        >
-                            DELETE
-                        </button>
+                    <td>
+                        {{ r['icon'] }}
+                    </td>
 
-                    </form>
+                    <td>
 
-                </td>
+                        <form method="post">
 
-            </tr>
+                            <input
+                                type="hidden"
+                                name="action"
+                                value="delete"
+                            >
 
-            {% endfor %}
+                            <input
+                                type="hidden"
+                                name="id"
+                                value="{{ r['id'] }}"
+                            >
 
-        </table>
+                            <button
+                                class="btn red"
+                                type="submit"
+                            >
+                                DELETE
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </table>
 
         </div>
+
         """,
 
         rows=rows
     )
+
 
     return admin_page(
         "Education",
@@ -5419,11 +6219,14 @@ def admin_gallery():
 
     con = db()
 
+
     if request.method == "POST":
 
         action = request.form.get(
-            "action"
+            "action",
+            ""
         )
+
 
         try:
 
@@ -5436,21 +6239,27 @@ def admin_gallery():
                     WHERE id=?
                     """,
                     (
-                        request.form.get("id"),
+                        request.form.get(
+                            "id"
+                        ),
                     )
                 )
 
             else:
 
                 photo = save_upload(
-                    request.files.get("photo")
+                    request.files.get(
+                        "photo"
+                    )
                 )
+
 
                 if not photo:
 
                     raise ValueError(
                         "Gallery photo select karo."
                     )
+
 
                 con.execute(
                     """
@@ -5462,13 +6271,23 @@ def admin_gallery():
                     VALUES(?,?,?)
                     """,
                     (
-                        request.form.get("title","").strip(),
-                        request.form.get("category","General").strip(),
+                        request.form.get(
+                            "title",
+                            ""
+                        ).strip(),
+
+                        request.form.get(
+                            "category",
+                            "General"
+                        ).strip(),
+
                         photo
                     )
                 )
 
+
             con.commit()
+
 
         except Exception as e:
 
@@ -5489,12 +6308,14 @@ def admin_gallery():
         """
     ).fetchall()
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -5509,31 +6330,47 @@ def admin_gallery():
                 <div class="form">
 
                     <div>
-                        <label>Title</label>
+                        <label>
+                            Title
+                        </label>
+
                         <input name="title">
+
                     </div>
 
+
                     <div>
-                        <label>Category</label>
+                        <label>
+                            Category
+                        </label>
+
                         <input
                             name="category"
                             value="General"
                         >
+
                     </div>
 
+
                     <div class="full">
-                        <label>Photo</label>
+                        <label>
+                            Photo
+                        </label>
+
                         <input
                             type="file"
                             name="photo"
                             accept=".jpg,.jpeg,.png,.webp,.gif"
                             required
                         >
+
                     </div>
 
                 </div>
 
+
                 <br>
+
 
                 <button
                     class="btn green"
@@ -5554,10 +6391,8 @@ def admin_gallery():
             <div class="card">
 
                 <img
-                    src="{{ url_for(
-                        'uploaded_file',
-                        filename=r['photo']
-                    ) }}"
+                    src="{{ image_url(r['photo']) }}"
+                    alt="{{ r['title'] }}"
                 >
 
                 <h3>
@@ -5568,7 +6403,6 @@ def admin_gallery():
                     {{ r['category'] }}
                 </p>
 
-                <br>
 
                 <form method="post">
 
@@ -5601,8 +6435,11 @@ def admin_gallery():
 
         """,
 
-        rows=rows
+        rows=rows,
+
+        image_url=image_url
     )
+
 
     return admin_page(
         "Gallery",
@@ -5620,6 +6457,7 @@ def admin_donations():
 
     con = db()
 
+
     rows = con.execute(
         """
         SELECT *
@@ -5627,6 +6465,7 @@ def admin_donations():
         ORDER BY id DESC
         """
     ).fetchall()
+
 
     total = con.execute(
         """
@@ -5638,12 +6477,14 @@ def admin_donations():
         """
     ).fetchone()[0]
 
+
     con.close()
 
 
     body = render_template_string(
 
         """
+
         <div class="panel">
 
             <h2>
@@ -5660,58 +6501,80 @@ def admin_donations():
 
         <div class="panel">
 
-        <div style="overflow-x:auto">
+            <div
+                style="overflow-x:auto"
+            >
 
-        <table>
+                <table>
 
-            <tr>
+                    <tr>
 
-                <th>Donor</th>
-                <th>Amount</th>
-                <th>Purpose</th>
-                <th>Mode</th>
-                <th>Note</th>
+                        <th>
+                            Donor
+                        </th>
 
-            </tr>
+                        <th>
+                            Amount
+                        </th>
 
-            {% for r in rows %}
+                        <th>
+                            Purpose
+                        </th>
 
-            <tr>
+                        <th>
+                            Mode
+                        </th>
 
-                <td>
-                    {{ r['donor_name'] }}
-                </td>
+                        <th>
+                            Note
+                        </th>
 
-                <td>
-                    ₹ {{ "%.2f"|format(r['amount'] or 0) }}
-                </td>
+                    </tr>
 
-                <td>
-                    {{ r['purpose'] }}
-                </td>
 
-                <td>
-                    {{ r['mode'] }}
-                </td>
+                    {% for r in rows %}
 
-                <td>
-                    {{ r['note'] }}
-                </td>
+                    <tr>
 
-            </tr>
+                        <td>
+                            {{ r['donor_name'] }}
+                        </td>
 
-            {% endfor %}
+                        <td>
+                            ₹ {{ "%.2f"|format(
+                                r['amount'] or 0
+                            ) }}
+                        </td>
 
-        </table>
+                        <td>
+                            {{ r['purpose'] }}
+                        </td>
+
+                        <td>
+                            {{ r['mode'] }}
+                        </td>
+
+                        <td>
+                            {{ r['note'] }}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </table>
+
+            </div>
 
         </div>
 
-        </div>
         """,
 
         rows=rows,
+
         total=total
     )
+
 
     return admin_page(
         "Donations",
@@ -5728,22 +6591,22 @@ if __name__ == "__main__":
     setup()
 
     print()
-    print("=" * 60)
-    print("       मैढ़ स्वर्णकार समाज - WEBSITE")
-    print("       Jodhpur, Rajasthan")
-    print("=" * 60)
+    print("=" * 65)
+    print("          मैढ़ स्वर्णकार समाज - WEBSITE")
+    print("          Jodhpur, Rajasthan")
+    print("=" * 65)
     print()
     print("Website:")
     print("http://127.0.0.1:5000")
     print()
-    print("Admin:")
+    print("Admin Panel:")
     print("http://127.0.0.1:5000/admin/login")
     print()
     print("Default Admin Username : admin")
     print("Default Admin Password : 1234")
     print()
     print("Developer : KRISHNA")
-    print("=" * 60)
+    print("=" * 65)
 
     app.run(
         host="127.0.0.1",
