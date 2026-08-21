@@ -8,59 +8,26 @@ from flask import (
     url_for,
     send_from_directory
 )
-
-from werkzeug.security import (
-    generate_password_hash,
-    check_password_hash
-)
-
+from werkzeug.security import generate_password_hash, check_password_hash
 from pathlib import Path
 from functools import wraps
 from datetime import datetime
-
 import sqlite3
 import os
 import uuid
 
 
 # ============================================================
-# APP SETTINGS
+# BASIC SETTINGS
 # ============================================================
 
 APP_DIR = Path(__file__).resolve().parent
-
 DB = APP_DIR / "swarnkar_samaj.db"
 
-# Public photos
-IMAGE_DIR = APP_DIR / "images"
-
-# Admin uploaded photos
-UPLOAD_DIR = IMAGE_DIR / "uploads"
-
 # IMPORTANT:
-# Flask ka default static folder rakha gaya hai,
-# lekin society photos "images" folder me hongi.
-FLASK_STATIC_DIR = APP_DIR / "static"
-
-
-# ============================================================
-# CREATE DIRECTORIES
-# ============================================================
-
-IMAGE_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-UPLOAD_DIR.mkdir(
-    parents=True,
-    exist_ok=True
-)
-
-
-# ============================================================
-# FLASK APP
-# ============================================================
+# static folder GitHub me manually banana hai.
+# Code ise create nahi karega.
+STATIC_DIR = APP_DIR / "static"
 
 app = Flask(
     __name__,
@@ -68,16 +35,10 @@ app = Flask(
     static_url_path="/static"
 )
 
-
 app.secret_key = os.environ.get(
     "SAMAJ_SECRET_KEY",
-    "maidh-swarnkar-samaj-secret-2026"
+    "swarnkar-samaj-secret-2026"
 )
-
-
-# ============================================================
-# ADMIN LOGIN
-# ============================================================
 
 ADMIN_USER = os.environ.get(
     "SAMAJ_ADMIN_USER",
@@ -99,234 +60,125 @@ ADMIN_PASSWORD_HASH = generate_password_hash(
 # ============================================================
 
 def db():
-
-    con = sqlite3.connect(
-        DB,
-        timeout=30
-    )
-
+    con = sqlite3.connect(DB, timeout=30)
     con.row_factory = sqlite3.Row
-
     return con
 
 
 def setup():
-
     con = db()
 
     con.executescript("""
-
     CREATE TABLE IF NOT EXISTS settings(
-
         id INTEGER PRIMARY KEY CHECK(id=1),
-
         samaj_name TEXT DEFAULT 'मैढ़ स्वर्णकार समाज',
-
         location TEXT DEFAULT 'जोधपुर, राजस्थान',
-
         slogan TEXT DEFAULT 'एकता • सेवा • संस्कार • विकास',
-
         about TEXT DEFAULT '',
-
         bhawan_name TEXT DEFAULT 'समाज भवन',
-
         bhawan_address TEXT DEFAULT '',
-
         bhawan_details TEXT DEFAULT '',
-
         bhawan_phone TEXT DEFAULT '',
-
         phone TEXT DEFAULT '',
-
         whatsapp TEXT DEFAULT '',
-
         email TEXT DEFAULT '',
-
         map_url TEXT DEFAULT '',
-
         donation_info TEXT DEFAULT '',
-
         upi_id TEXT DEFAULT '',
-
         hero_photo TEXT DEFAULT 'ajmeedhji_maharaj.jpg',
-
         bhagwan_photo TEXT DEFAULT 'bhagwan.jpg',
-
         bhawan_photo TEXT DEFAULT 'samaj_bhawan.jpg'
-
     );
-
 
     CREATE TABLE IF NOT EXISTS members(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         name TEXT NOT NULL,
-
         mobile TEXT DEFAULT '',
-
         city TEXT DEFAULT '',
-
         village TEXT DEFAULT '',
-
         occupation TEXT DEFAULT '',
-
         family TEXT DEFAULT '',
-
         photo TEXT DEFAULT '',
-
         active INTEGER DEFAULT 1,
-
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
-
     );
-
 
     CREATE TABLE IF NOT EXISTS committee(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         name TEXT NOT NULL,
-
         post TEXT NOT NULL,
-
         mobile TEXT DEFAULT '',
-
         photo TEXT DEFAULT '',
-
         sort_order INTEGER DEFAULT 0,
-
         active INTEGER DEFAULT 1
-
     );
-
 
     CREATE TABLE IF NOT EXISTS businesses(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         name TEXT NOT NULL,
-
         owner TEXT DEFAULT '',
-
         category TEXT DEFAULT '',
-
         mobile TEXT DEFAULT '',
-
         address TEXT DEFAULT '',
-
         description TEXT DEFAULT '',
-
         photo TEXT DEFAULT '',
-
         active INTEGER DEFAULT 1
-
     );
-
 
     CREATE TABLE IF NOT EXISTS events(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         title TEXT NOT NULL,
-
         event_date TEXT DEFAULT '',
-
         event_time TEXT DEFAULT '',
-
         venue TEXT DEFAULT '',
-
         description TEXT DEFAULT '',
-
         photo TEXT DEFAULT '',
-
         registration_url TEXT DEFAULT '',
-
         active INTEGER DEFAULT 1
-
     );
-
 
     CREATE TABLE IF NOT EXISTS news(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         title TEXT NOT NULL,
-
         news_date TEXT DEFAULT '',
-
         body TEXT DEFAULT '',
-
         photo TEXT DEFAULT '',
-
         active INTEGER DEFAULT 1
-
     );
-
-
-    CREATE TABLE IF NOT EXISTS education(
-
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-        title TEXT NOT NULL,
-
-        body TEXT DEFAULT '',
-
-        icon TEXT DEFAULT '🎓',
-
-        active INTEGER DEFAULT 1
-
-    );
-
 
     CREATE TABLE IF NOT EXISTS notices(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         title TEXT NOT NULL,
-
         body TEXT DEFAULT '',
-
         notice_date TEXT DEFAULT '',
-
         active INTEGER DEFAULT 1
-
     );
 
+    CREATE TABLE IF NOT EXISTS education(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL,
+        body TEXT DEFAULT '',
+        icon TEXT DEFAULT '🎓',
+        active INTEGER DEFAULT 1
+    );
 
     CREATE TABLE IF NOT EXISTS gallery(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         title TEXT DEFAULT '',
-
         category TEXT DEFAULT 'General',
-
         photo TEXT NOT NULL,
-
         active INTEGER DEFAULT 1
-
     );
-
 
     CREATE TABLE IF NOT EXISTS donations(
-
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-
         donor_name TEXT NOT NULL,
-
         amount REAL DEFAULT 0,
-
         purpose TEXT DEFAULT '',
-
         mode TEXT DEFAULT 'UPI',
-
         note TEXT DEFAULT '',
-
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
-
     );
-
     """)
 
     row = con.execute(
@@ -334,7 +186,6 @@ def setup():
     ).fetchone()
 
     if not row:
-
         con.execute(
             """
             INSERT INTO settings(
@@ -353,7 +204,6 @@ def setup():
         )
 
     con.commit()
-
     con.close()
 
 
@@ -365,7 +215,6 @@ setup()
 # ============================================================
 
 def get_settings():
-
     con = db()
 
     row = con.execute(
@@ -378,39 +227,60 @@ def get_settings():
 
 
 def admin_required(view):
-
     @wraps(view)
     def wrapped(*args, **kwargs):
-
-        if not session.get(
-            "admin_logged_in"
-        ):
-
-            return redirect(
-                url_for("admin_login")
-            )
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("admin_login"))
 
         return view(*args, **kwargs)
 
     return wrapped
 
 
+def safe(value):
+    if value is None:
+        return ""
+
+    return str(value).replace(
+        "&", "&amp;"
+    ).replace(
+        "<", "&lt;"
+    ).replace(
+        ">", "&gt;"
+    ).replace(
+        '"', "&quot;"
+    )
+
+
+def money(value):
+    try:
+        return "₹ {:,.2f}".format(float(value or 0))
+    except Exception:
+        return "₹ 0.00"
+
+
+def image_url(filename):
+    if not filename:
+        return ""
+
+    return url_for(
+        "site_image",
+        filename=filename
+    )
+
+
 def save_upload(file):
+    """
+    Admin uploaded image ko directly static/ folder me save karega.
+    static folder GitHub me manually hona chahiye.
+    """
 
-    if not file:
-
+    if not file or not file.filename:
         return ""
-
-
-    if not file.filename:
-
-        return ""
-
 
     ext = Path(
         file.filename
     ).suffix.lower()
-
 
     allowed = {
         ".jpg",
@@ -420,92 +290,52 @@ def save_upload(file):
         ".gif"
     }
 
-
     if ext not in allowed:
-
         raise ValueError(
-            "Sirf JPG, JPEG, PNG, WEBP ya GIF image allowed hai."
+            "Sirf JPG, JPEG, PNG, WEBP aur GIF allowed hai."
         )
 
+    # static folder missing hai to clear error
+    if not STATIC_DIR.exists():
+        raise RuntimeError(
+            "static folder missing hai. GitHub me static naam ka folder banao."
+        )
+
+    if not STATIC_DIR.is_dir():
+        raise RuntimeError(
+            "static ek folder hona chahiye, file nahi."
+        )
 
     filename = (
-        uuid.uuid4().hex
+        "upload_"
+        + uuid.uuid4().hex
         + ext
     )
 
-
     file.save(
-        UPLOAD_DIR / filename
+        STATIC_DIR / filename
     )
-
 
     return filename
 
 
-def safe(value):
-
-    if value is None:
-        return ""
-
-    return (
-        str(value)
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
-
-
-def money(value):
-
-    try:
-
-        return (
-            "₹ "
-            + format(
-                float(value or 0),
-                ",.2f"
-            )
-        )
-
-    except Exception:
-
-        return "₹ 0.00"
-
-
-def image_url(filename):
-
-    if not filename:
-
-        return ""
-
-    return url_for(
-        "image_file",
-        filename=filename
-    )
-
-
 # ============================================================
-# IMAGE ROUTE
+# SITE IMAGE ROUTE
 # ============================================================
 
-@app.route(
-    "/images/<path:filename>"
-)
-def image_file(filename):
-
+@app.route("/site-image/<path:filename>")
+def site_image(filename):
     return send_from_directory(
-        IMAGE_DIR,
+        STATIC_DIR,
         filename
     )
 
 
 # ============================================================
-# PUBLIC TEMPLATE
+# PUBLIC HTML
 # ============================================================
 
 PUBLIC_HTML = """
-
 <!DOCTYPE html>
 
 <html lang="hi">
@@ -516,7 +346,7 @@ PUBLIC_HTML = """
 
 <meta
     name="viewport"
-    content="width=device-width,initial-scale=1"
+    content="width=device-width, initial-scale=1"
 >
 
 <title>
@@ -529,644 +359,416 @@ PUBLIC_HTML = """
     box-sizing:border-box;
 }
 
-html{
-    scroll-behavior:smooth;
-}
-
 body{
-
     margin:0;
-
     font-family:
         "Segoe UI",
         "Noto Sans Devanagari",
         Arial,
         sans-serif;
 
-    color:#2e1a09;
-
-    line-height:1.65;
+    color:#2d1909;
 
     background:
-
         radial-gradient(
-            circle at 0% 0%,
-            #fff0b0,
-            transparent 27%
-        ),
-
-        radial-gradient(
-            circle at 100% 20%,
-            #f1d99a,
+            circle at top left,
+            #fff0b8,
             transparent 25%
         ),
-
         linear-gradient(
             135deg,
-            #fffdf7,
-            #f8ebca,
-            #fffdf7
+            #fffdf8,
+            #f4e4bb,
+            #fffdf8
         );
-
-    min-height:100vh;
 }
 
-
-/* ============================================================
-   HEADER
-============================================================ */
-
 header{
-
     position:sticky;
-
     top:0;
-
-    z-index:1000;
+    z-index:999;
 
     background:
-
         linear-gradient(
             135deg,
             #150801,
-            #5b3109,
-            #a66f18,
-            #482205,
-            #120500
+            #5e350c,
+            #a97016,
+            #442105,
+            #110400
         );
 
-    border-bottom:
-        3px solid #e1b43c;
+    border-bottom:3px solid #e1b43c;
 
     box-shadow:
-        0 8px 35px rgba(0,0,0,.25);
-
+        0 7px 28px #0004;
 }
 
 .header-inner{
-
     max-width:1450px;
-
     margin:auto;
 
-    padding:
-        13px 20px;
+    padding:13px 20px;
 
     display:flex;
-
+    align-items:center;
     justify-content:space-between;
 
-    align-items:center;
-
     gap:20px;
-
 }
 
 .brand{
-
     display:flex;
-
     align-items:center;
-
     gap:12px;
-
 }
 
-.logo-circle{
-
+.logo{
     width:52px;
-
     height:52px;
 
-    border-radius:50%;
-
     display:flex;
-
     align-items:center;
-
     justify-content:center;
+
+    border-radius:50%;
 
     background:
         linear-gradient(
             135deg,
-            #fffdf0,
-            #f3cc57
+            #fff,
+            #f3cb58
         );
 
-    color:#855000;
+    color:#885300;
 
-    font-size:27px;
+    font-size:26px;
 
-    border:
-        2px solid #ffe292;
-
-    box-shadow:
-        0 0 20px rgba(255,214,85,.4);
-
+    border:2px solid #ffe394;
 }
 
 .brand h1{
-
     margin:0;
-
-    color:#ffe59a;
-
-    font-size:22px;
-
+    color:#ffe59b;
+    font-size:21px;
 }
 
 .brand p{
-
     margin:0;
-
-    color:#fff0c7;
-
+    color:#fff1cb;
     font-size:12px;
-
 }
 
-
-/* ============================================================
-   NAV
-============================================================ */
-
 nav{
-
     display:flex;
-
     flex-wrap:wrap;
-
-    align-items:center;
-
     justify-content:center;
-
-    gap:5px;
-
+    gap:4px;
 }
 
 nav a{
-
     color:white;
-
     text-decoration:none;
+
+    padding:8px 10px;
+
+    border-radius:9px;
 
     font-size:12px;
 
     font-weight:800;
 
-    padding:
-        8px 10px;
-
-    border-radius:9px;
-
-    transition:
-        .25s;
-
+    transition:.25s;
 }
 
 nav a:hover{
-
     background:
         linear-gradient(
             135deg,
-            #eebd43,
-            #fff0a0
+            #e9b83e,
+            #fff0a5
         );
 
-    color:#281505;
+    color:#2a1604;
 
-    transform:
-        translateY(-2px);
-
+    transform:translateY(-2px);
 }
 
-
-/* ============================================================
-   PAGE
-============================================================ */
-
-.page{
-
+.container{
     max-width:1250px;
-
     margin:auto;
-
-    padding:
-        45px 20px 75px;
-
+    padding:45px 20px 70px;
 }
 
 .hero{
-
     min-height:560px;
 
     border-radius:28px;
 
-    overflow:hidden;
-
     display:flex;
-
     align-items:center;
-
     justify-content:center;
 
     text-align:center;
 
     background:
-
         linear-gradient(
-            rgba(20,8,0,.27),
+            rgba(20,8,0,.28),
             rgba(20,8,0,.72)
         ),
-
-        url("/images/ajmeedhji_maharaj.jpg");
+        url("/static/ajmeedhji_maharaj.jpg");
 
     background-size:cover;
-
     background-position:center;
 
     box-shadow:
-        0 25px 65px rgba(65,40,10,.22);
-
+        0 25px 60px #5e3c161f;
 }
 
-.hero-content{
-
-    width:min(
-        950px,
-        92%
-    );
+.hero-box{
+    width:min(950px,92%);
 
     padding:35px;
 
+    border-radius:28px;
+
     color:white;
 
     background:
-        rgba(15,6,1,.22);
+        rgba(12,5,1,.25);
 
-    backdrop-filter:
-        blur(8px);
+    backdrop-filter:blur(8px);
 
     border:
         1px solid rgba(255,255,255,.2);
-
-    border-radius:28px;
-
 }
 
-.hero h2{
-
+.hero-box h2{
     margin:10px 0;
 
+    color:#fff2ae;
+
     font-size:
         clamp(
-            40px,
+            38px,
             7vw,
-            78px
+            76px
         );
-
-    color:#fff2ad;
 
     line-height:1.1;
-
 }
 
-.hero h3{
-
-    font-size:
-        clamp(
-            20px,
-            3vw,
-            30px
-        );
-
+.hero-box h3{
+    font-size:28px;
     font-weight:500;
-
 }
 
-.hero p{
-
+.hero-box p{
     font-size:18px;
-
-    color:#fff6d7;
-
-    margin-top:12px;
-
+    color:#fff6da;
 }
 
 .badge{
-
     display:inline-block;
 
-    padding:
-        8px 18px;
+    padding:8px 18px;
 
     border-radius:999px;
 
-    background:
-        rgba(255,255,255,.15);
+    background:#ffffff22;
 
-    border:
-        1px solid rgba(255,255,255,.3);
+    border:1px solid #ffffff55;
 
-    color:#ffe18a;
+    color:#ffe28f;
 
     font-weight:800;
-
 }
 
 .buttons{
-
     display:flex;
-
     flex-wrap:wrap;
-
-    gap:10px;
-
     align-items:center;
-
+    gap:10px;
 }
 
 .center{
-
     justify-content:center;
-
 }
 
 .btn{
-
     display:inline-block;
 
     border:0;
-
     text-decoration:none;
-
     cursor:pointer;
 
-    padding:
-        11px 16px;
+    padding:11px 16px;
 
-    border-radius:11px;
+    border-radius:10px;
 
     font-weight:800;
 
-    transition:
-        .25s;
-
+    transition:.25s;
 }
 
 .btn:hover{
-
-    transform:
-        translateY(-3px);
-
-    filter:
-        brightness(1.06);
-
+    transform:translateY(-3px);
+    filter:brightness(1.07);
 }
 
 .gold{
-
     background:
         linear-gradient(
             135deg,
-            #d79b18,
-            #f5d56b
+            #d69d1a,
+            #f5d66d
         );
 
-    color:#291505;
-
-}
-
-.blue{
-
-    background:
-        linear-gradient(
-            135deg,
-            #2057bf,
-            #6195ff
-        );
-
-    color:white;
-
+    color:#291605;
 }
 
 .green{
-
     background:
         linear-gradient(
             135deg,
-            #0f8547,
+            #108348,
             #2bc979
         );
 
     color:white;
-
 }
 
-.purple{
-
+.blue{
     background:
         linear-gradient(
             135deg,
-            #663cb8,
-            #a27aec
+            #2159c4,
+            #5f94ff
         );
 
     color:white;
-
 }
 
 .red{
-
     background:
         linear-gradient(
             135deg,
-            #a91e36,
-            #df5266
+            #a91d37,
+            #df5065
         );
 
     color:white;
-
 }
 
+.purple{
+    background:
+        linear-gradient(
+            135deg,
+            #633bb5,
+            #a47cf0
+        );
 
-/* ============================================================
-   PANELS
-============================================================ */
+    color:white;
+}
 
 .panel{
-
-    margin-bottom:22px;
+    background:#ffffffee;
 
     padding:25px;
 
+    margin-bottom:22px;
+
     border-radius:22px;
 
-    background:
-        rgba(
-            255,
-            255,
-            255,
-            .94
-        );
-
-    border:
-        1px solid #ead7a8;
+    border:1px solid #ead8aa;
 
     box-shadow:
-        0 14px 40px rgba(84,52,15,.08);
-
+        0 13px 35px #754b1011;
 }
 
 .panel h2{
-
     margin-top:0;
-
-    color:#6e4100;
-
+    color:#6f4300;
 }
 
-.panel h3{
-
-    color:#754900;
-
-}
-
-.muted{
-
-    color:#777;
-
-}
-
-
-/* ============================================================
-   GRID
-============================================================ */
-
-.grid{
-
+.card-grid{
     display:grid;
 
     grid-template-columns:
         repeat(
             auto-fit,
             minmax(
-                230px,
+                235px,
                 1fr
             )
         );
 
     gap:18px;
-
 }
 
-
-/* ============================================================
-   CARDS
-============================================================ */
-
 .card{
-
     background:white;
-
-    border:
-        1px solid #ead9b0;
-
-    border-left:
-        5px solid #d6a52d;
-
-    border-radius:18px;
 
     padding:20px;
 
+    border-radius:18px;
+
+    border:
+        1px solid #ead6a7;
+
+    border-left:
+        5px solid #d5a32b;
+
     box-shadow:
-        0 10px 28px rgba(75,45,10,.08);
+        0 9px 25px #66400d0d;
 
-    transition:
-        .28s;
-
+    transition:.25s;
 }
 
 .card:hover{
-
-    transform:
-        translateY(-6px);
+    transform:translateY(-5px);
 
     box-shadow:
-        0 16px 38px rgba(75,45,10,.14);
-
+        0 15px 35px #66400d18;
 }
 
 .card h3{
-
-    color:#744700;
-
-    margin-top:0;
-
+    color:#714500;
 }
 
 .card p{
-
-    color:#625a51;
-
+    color:#635b52;
 }
 
 .card img{
-
     width:100%;
-
-    height:220px;
+    height:210px;
 
     object-fit:cover;
 
     border-radius:14px;
 
-    margin-bottom:12px;
-
+    margin-bottom:10px;
 }
 
-
-/* ============================================================
-   PHOTO
-============================================================ */
-
 .large-photo{
-
     width:100%;
-
-    max-height:520px;
+    max-height:500px;
 
     object-fit:cover;
 
-    border-radius:24px;
+    border-radius:22px;
 
-    border:
-        5px solid #f1dfa6;
-
-    box-shadow:
-        0 18px 45px rgba(80,50,10,.15);
-
+    border:4px solid #f0dda1;
 }
 
 .two{
-
     display:grid;
-
-    grid-template-columns:
-        1fr 1fr;
-
-    gap:22px;
-
+    grid-template-columns:1fr 1fr;
+    gap:20px;
 }
 
-
-/* ============================================================
-   GALLERY
-============================================================ */
-
 .gallery{
-
     display:grid;
 
     grid-template-columns:
@@ -1179,147 +781,156 @@ nav a:hover{
         );
 
     gap:15px;
-
 }
 
 .gallery-item{
-
     background:white;
-
-    overflow:hidden;
 
     border-radius:18px;
 
-    box-shadow:
-        0 10px 28px #69461112;
+    overflow:hidden;
 
+    box-shadow:
+        0 10px 28px #70491012;
 }
 
 .gallery-item img{
-
     width:100%;
-
-    height:230px;
+    height:220px;
 
     object-fit:cover;
 
     display:block;
-
-    transition:.35s;
-
-}
-
-.gallery-item:hover img{
-
-    transform:
-        scale(1.06);
-
 }
 
 .gallery-item div{
-
     padding:12px;
 
+    color:#704500;
+
     font-weight:800;
-
-    color:#744700;
-
 }
 
-
-/* ============================================================
-   FOOTER
-============================================================ */
-
 footer{
-
-    margin-top:20px;
-
-    padding:
-        40px 20px;
-
     text-align:center;
 
-    background:
+    padding:40px 20px;
 
+    background:
         linear-gradient(
             135deg,
             #160701,
-            #472307,
-            #170701
+            #492406,
+            #160701
         );
 
-    border-top:
-        3px solid #d7aa37;
+    color:#ffe59a;
 
-    color:#ffe7a0;
-
+    border-top:3px solid #d7a932;
 }
 
 footer p{
-
-    color:#d7cab9;
-
+    color:#d8cabb;
 }
 
+.form-grid{
+    display:grid;
 
-/* ============================================================
-   MOBILE
-============================================================ */
+    grid-template-columns:
+        repeat(
+            2,
+            1fr
+        );
+
+    gap:12px;
+}
+
+input,
+select,
+textarea{
+
+    width:100%;
+
+    padding:11px;
+
+    border:
+        1px solid #d5bf8d;
+
+    border-radius:9px;
+
+    background:#fffdf8;
+
+    font-size:14px;
+}
+
+textarea{
+    min-height:110px;
+}
+
+.full{
+    grid-column:1/-1;
+}
+
+.alert{
+    padding:12px;
+
+    border-radius:9px;
+
+    margin-bottom:15px;
+
+    background:#dff2e5;
+
+    color:#17633b;
+
+    font-weight:700;
+}
+
+.alert.error{
+    background:#ffe0e4;
+
+    color:#8b2032;
+}
 
 @media(max-width:950px){
 
     .header-inner{
-
         flex-direction:column;
-
-    }
-
-    nav{
-
-        width:100%;
-
     }
 
     .two{
-
         grid-template-columns:1fr;
-
     }
 
 }
 
 @media(max-width:650px){
 
-    .page{
-
+    .container{
         padding:
-            20px 12px 55px;
-
+            22px 12px 55px;
     }
 
     .hero{
-
         min-height:500px;
-
         border-radius:20px;
-
     }
 
-    .hero-content{
-
-        padding:25px 16px;
-
+    .hero-box{
+        padding:25px 15px;
         border-radius:20px;
-
     }
 
     nav a{
-
-        font-size:11px;
-
+        font-size:10px;
         padding:7px 8px;
+    }
 
+    .form-grid{
+        grid-template-columns:1fr;
+    }
+
+    .full{
+        grid-column:auto;
     }
 
 }
@@ -1330,14 +941,13 @@ footer p{
 
 <body>
 
-
 <header>
 
 <div class="header-inner">
 
 <div class="brand">
 
-<div class="logo-circle">
+<div class="logo">
 ॐ
 </div>
 
@@ -1355,56 +965,31 @@ footer p{
 
 </div>
 
-
 <nav>
 
-<a href="{{ url_for('home') }}">
-🏠 Home
-</a>
+<a href="{{ url_for('home') }}">🏠 Home</a>
 
-<a href="{{ url_for('about') }}">
-🏛️ समाज
-</a>
+<a href="{{ url_for('about') }}">🏛️ समाज</a>
 
-<a href="{{ url_for('bhawan') }}">
-🏢 भवन
-</a>
+<a href="{{ url_for('bhawan') }}">🏢 भवन</a>
 
-<a href="{{ url_for('members') }}">
-👥 सदस्य
-</a>
+<a href="{{ url_for('members') }}">👥 सदस्य</a>
 
-<a href="{{ url_for('committee') }}">
-👔 समिति
-</a>
+<a href="{{ url_for('committee') }}">👔 समिति</a>
 
-<a href="{{ url_for('businesses') }}">
-🏪 व्यवसाय
-</a>
+<a href="{{ url_for('businesses') }}">🏪 व्यवसाय</a>
 
-<a href="{{ url_for('events') }}">
-🎉 कार्यक्रम
-</a>
+<a href="{{ url_for('events') }}">🎉 कार्यक्रम</a>
 
-<a href="{{ url_for('news') }}">
-📰 समाचार
-</a>
+<a href="{{ url_for('news') }}">📰 समाचार</a>
 
-<a href="{{ url_for('education') }}">
-🎓 शिक्षा
-</a>
+<a href="{{ url_for('education') }}">🎓 शिक्षा</a>
 
-<a href="{{ url_for('gallery') }}">
-📸 Gallery
-</a>
+<a href="{{ url_for('gallery') }}">📸 Gallery</a>
 
-<a href="{{ url_for('donation') }}">
-❤️ सहयोग
-</a>
+<a href="{{ url_for('donation') }}">❤️ सहयोग</a>
 
-<a href="{{ url_for('contact') }}">
-📞 Contact
-</a>
+<a href="{{ url_for('contact') }}">📞 Contact</a>
 
 </nav>
 
@@ -1413,7 +998,7 @@ footer p{
 </header>
 
 
-<div class="page">
+<div class="container">
 
 {{ body|safe }}
 
@@ -1434,8 +1019,6 @@ footer p{
 {{ s['slogan'] }}
 </p>
 
-<br>
-
 <p>
 🙏 जय अजमीढ़ जी महाराज 🙏
 </p>
@@ -1449,7 +1032,6 @@ footer p{
 
 
 def public_page(title, body):
-
     return render_template_string(
         PUBLIC_HTML,
         title=title,
@@ -1459,7 +1041,7 @@ def public_page(title, body):
 
 
 # ============================================================
-# ADMIN TEMPLATE
+# ADMIN HTML
 # ============================================================
 
 ADMIN_HTML = """
@@ -1488,7 +1070,6 @@ Admin - मैढ़ स्वर्णकार समाज
 }
 
 body{
-
     margin:0;
 
     font-family:
@@ -1499,107 +1080,90 @@ body{
     background:
         linear-gradient(
             135deg,
-            #fffaf0,
-            #efd58f
+            #fffaf1,
+            #edd28b
         );
 
-    color:#2d1909;
-
+    color:#2e1909;
 }
 
 .top{
-
     background:
         linear-gradient(
             135deg,
-            #1a0b03,
-            #69400f,
-            #1a0b03
+            #170800,
+            #623709,
+            #170800
         );
 
-    color:#ffe69a;
+    color:#ffe59a;
 
     padding:18px;
 
     text-align:center;
 
     border-bottom:
-        3px solid #dcae36;
-
+        3px solid #d8a930;
 }
 
 .layout{
-
     display:flex;
 
     min-height:
         calc(100vh - 90px);
-
 }
 
 .sidebar{
+    width:245px;
 
-    width:250px;
-
-    background:#251207;
+    background:#241106;
 
     padding:15px;
-
 }
 
 .sidebar a{
-
     display:block;
-
-    color:white;
 
     text-decoration:none;
 
-    padding:11px;
+    color:white;
 
-    border-radius:9px;
+    padding:11px;
 
     margin-bottom:6px;
 
-    font-weight:bold;
+    border-radius:9px;
 
+    font-weight:800;
 }
 
 .sidebar a:hover{
-
-    background:#d5a42f;
-
-    color:#261406;
-
+    background:#d7a82f;
+    color:#241306;
 }
 
 .main{
-
     flex:1;
 
     padding:22px;
 
     min-width:0;
-
 }
 
 .panel{
-
     background:white;
-
-    border-radius:17px;
 
     padding:20px;
 
     margin-bottom:18px;
 
-    box-shadow:
-        0 10px 30px #5a380d18;
+    border-radius:17px;
 
+    box-shadow:
+        0 9px 28px #60401014;
 }
 
 .grid{
-
     display:grid;
 
     grid-template-columns:
@@ -1612,11 +1176,9 @@ body{
         );
 
     gap:13px;
-
 }
 
-.form{
-
+.form-grid{
     display:grid;
 
     grid-template-columns:
@@ -1626,63 +1188,50 @@ body{
         );
 
     gap:12px;
-
 }
 
 .full{
-
-    grid-column:
-        1 / -1;
-
+    grid-column:1/-1;
 }
 
 input,
 select,
 textarea{
-
     width:100%;
 
     padding:10px;
 
     border:
-        1px solid #d6c18d;
+        1px solid #d6c18f;
 
     border-radius:8px;
 
     background:#fffdf8;
-
-    font-size:14px;
-
 }
 
 textarea{
-
     min-height:110px;
-
 }
 
-button,
 .btn{
-
     border:0;
 
-    border-radius:9px;
+    border-radius:8px;
 
     padding:10px 14px;
 
+    font-weight:800;
+
     cursor:pointer;
-
-    font-weight:bold;
-
-    text-decoration:none;
 
     display:inline-block;
 
+    text-decoration:none;
 }
 
 .gold{
     background:#d7a82e;
-    color:#251406;
+    color:#241305;
 }
 
 .green{
@@ -1691,97 +1240,73 @@ button,
 }
 
 .red{
-    background:#b5263d;
+    background:#b5273e;
     color:white;
 }
 
 .blue{
-    background:#2866d2;
+    background:#2c67d1;
     color:white;
 }
 
 .preview{
-
     width:90px;
-
     height:65px;
 
     object-fit:cover;
 
     border-radius:8px;
-
 }
 
 table{
-
     width:100%;
-
     border-collapse:collapse;
-
 }
 
 th{
-
     background:#47250f;
 
-    color:#ffe69a;
+    color:#ffe79c;
 
     padding:10px;
 
     text-align:left;
-
 }
 
 td{
-
     padding:9px;
 
     border-bottom:
         1px solid #eee2c8;
-
-    vertical-align:top;
-
 }
 
 .alert{
-
     padding:12px;
-
-    border-radius:9px;
 
     background:#dff2e5;
 
-    margin-bottom:12px;
+    border-radius:9px;
 
+    margin-bottom:12px;
 }
 
-.error{
-
-    background:#ffe1e4;
-
-    color:#8b1f30;
-
+.alert.error{
+    background:#ffe0e4;
+    color:#8b2132;
 }
 
 @media(max-width:800px){
 
     .layout{
-
         display:block;
-
     }
 
     .sidebar{
-
         width:100%;
-
     }
 
-    .form{
-
-        grid-template-columns:
-            1fr;
-
+    .form-grid{
+        grid-template-columns:1fr;
     }
 
 }
@@ -1791,7 +1316,6 @@ td{
 </head>
 
 <body>
-
 
 <div class="top">
 
@@ -1805,9 +1329,7 @@ Admin Panel
 
 </div>
 
-
 <div class="layout">
-
 
 <aside class="sidebar">
 
@@ -1868,18 +1390,19 @@ Admin Panel
 
 </aside>
 
-
 <main class="main">
 
 {% with messages=get_flashed_messages(
     with_categories=true
 ) %}
 
-{% for category,message in messages %}
+{% for category, message in messages %}
 
 <div
     class="alert
-    {{ 'error' if category == 'error' else '' }}"
+    {% if category == 'error' %}
+    error
+    {% endif %}"
 >
 {{ message }}
 </div>
@@ -1888,11 +1411,9 @@ Admin Panel
 
 {% endwith %}
 
-
 {{ body|safe }}
 
 </main>
-
 
 </div>
 
@@ -1903,7 +1424,6 @@ Admin Panel
 
 
 def admin_page(title, body):
-
     return render_template_string(
         ADMIN_HTML,
         title=title,
@@ -1918,11 +1438,21 @@ def admin_page(title, body):
 @app.route("/")
 def home():
 
-    s = get_settings()
-
     con = db()
 
-    events = con.execute(
+    settings = get_settings()
+
+    notices = con.execute(
+        """
+        SELECT *
+        FROM notices
+        WHERE active=1
+        ORDER BY id DESC
+        LIMIT 5
+        """
+    ).fetchall()
+
+    events_rows = con.execute(
         """
         SELECT *
         FROM events
@@ -1942,16 +1472,6 @@ def home():
         """
     ).fetchall()
 
-    notices = con.execute(
-        """
-        SELECT *
-        FROM notices
-        WHERE active=1
-        ORDER BY id DESC
-        LIMIT 5
-        """
-    ).fetchall()
-
     gallery_rows = con.execute(
         """
         SELECT *
@@ -1964,29 +1484,26 @@ def home():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="hero">
 
-            <div class="hero-content">
+            <div class="hero-box">
 
                 <div class="badge">
                     🙏 जय अजमीढ़ जी महाराज 🙏
                 </div>
 
                 <h2>
-                    {{ s['samaj_name'] }}
+                    {{ settings['samaj_name'] }}
                 </h2>
 
                 <h3>
-                    {{ s['location'] }}
+                    {{ settings['location'] }}
                 </h3>
 
                 <p>
-                    {{ s['slogan'] }}
+                    {{ settings['slogan'] }}
                 </p>
 
                 <br>
@@ -2021,9 +1538,6 @@ def home():
         </div>
 
 
-        <br>
-
-
         <div class="panel">
 
             <h2>
@@ -2032,7 +1546,7 @@ def home():
 
             <br>
 
-            <div class="grid">
+            <div class="card-grid">
 
             {% for n in notices %}
 
@@ -2055,11 +1569,7 @@ def home():
             {% else %}
 
                 <div class="card">
-
-                    <p class="muted">
-                        अभी कोई सूचना उपलब्ध नहीं है।
-                    </p>
-
+                    अभी कोई सूचना नहीं है।
                 </div>
 
             {% endfor %}
@@ -2077,9 +1587,9 @@ def home():
 
             <br>
 
-            <div class="grid">
+            <div class="card-grid">
 
-            {% for e in events %}
+            {% for e in events_rows %}
 
                 <div class="card">
 
@@ -2109,11 +1619,7 @@ def home():
             {% else %}
 
                 <div class="card">
-
-                    <p>
-                        अभी कोई कार्यक्रम उपलब्ध नहीं है।
-                    </p>
-
+                    अभी कोई कार्यक्रम नहीं है।
                 </div>
 
             {% endfor %}
@@ -2140,7 +1646,7 @@ def home():
 
             <br>
 
-            <div class="grid">
+            <div class="card-grid">
 
             {% for n in news_rows %}
 
@@ -2150,7 +1656,6 @@ def home():
 
                     <img
                         src="{{ image_url(n['photo']) }}"
-                        alt="{{ n['title'] }}"
                     >
 
                     {% endif %}
@@ -2168,11 +1673,7 @@ def home():
             {% else %}
 
                 <div class="card">
-
-                    <p>
-                        अभी कोई समाचार उपलब्ध नहीं है।
-                    </p>
-
+                    अभी कोई समाचार नहीं है।
                 </div>
 
             {% endfor %}
@@ -2198,7 +1699,6 @@ def home():
 
                     <img
                         src="{{ image_url(g['photo']) }}"
-                        alt="{{ g['title'] }}"
                     >
 
                     <div>
@@ -2207,36 +1707,31 @@ def home():
 
                 </div>
 
+            {% else %}
+
+                <div class="card">
+                    अभी Gallery खाली है।
+                </div>
+
             {% endfor %}
 
             </div>
 
-            <br>
-
-            <a
-                class="btn blue"
-                href="{{ url_for('gallery') }}"
-            >
-                पूरी Gallery देखें →
-            </a>
-
         </div>
-
         """,
 
-        s=s,
-
-        events=events,
-
-        news_rows=news_rows,
+        settings=settings,
 
         notices=notices,
+
+        events_rows=events_rows,
+
+        news_rows=news_rows,
 
         gallery_rows=gallery_rows,
 
         image_url=image_url
     )
-
 
     return public_page(
         "Home",
@@ -2254,9 +1749,7 @@ def about():
     s = get_settings()
 
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2272,8 +1765,24 @@ def about():
 
         </div>
 
-        """,
+        <div class="buttons">
 
+            <a
+                class="btn gold"
+                href="{{ url_for('committee') }}"
+            >
+                👔 समाज समिति
+            </a>
+
+            <a
+                class="btn blue"
+                href="{{ url_for('members') }}"
+            >
+                👥 समाज सदस्य
+            </a>
+
+        </div>
+        """,
         s=s
     )
 
@@ -2298,9 +1807,7 @@ def bhawan():
     )
 
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2309,15 +1816,11 @@ def bhawan():
 
             <br>
 
-            {% if photo %}
-
             <img
                 class="large-photo"
                 src="{{ image_url(photo) }}"
                 alt="समाज भवन"
             >
-
-            {% endif %}
 
             <br><br>
 
@@ -2343,41 +1846,17 @@ def bhawan():
             <br>
 
             <h3>
-                📞 भवन संपर्क
+                📞 Contact
             </h3>
 
             <p>
                 {{ s['bhawan_phone'] or '-' }}
             </p>
 
-            <br>
-
-            <div class="buttons">
-
-                <a
-                    class="btn gold"
-                    href="{{ url_for('events') }}"
-                >
-                    🎉 कार्यक्रम
-                </a>
-
-                <a
-                    class="btn blue"
-                    href="{{ url_for('contact') }}"
-                >
-                    📞 Contact
-                </a>
-
-            </div>
-
         </div>
-
         """,
-
         s=s,
-
         photo=photo,
-
         image_url=image_url
     )
 
@@ -2407,25 +1886,17 @@ def members():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
                 👥 समाज सदस्य
             </h2>
 
-            <p class="muted">
-                समाज के सदस्यों की जानकारी
-            </p>
-
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for m in rows %}
 
@@ -2435,7 +1906,6 @@ def members():
 
                 <img
                     src="{{ image_url(m['photo']) }}"
-                    alt="{{ m['name'] }}"
                 >
 
                 {% endif %}
@@ -2477,21 +1947,14 @@ def members():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी सदस्य जानकारी उपलब्ध नहीं है।
-                </p>
-
+                अभी सदस्य जानकारी उपलब्ध नहीं है।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
@@ -2521,11 +1984,8 @@ def committee():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2534,8 +1994,7 @@ def committee():
 
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for c in rows %}
 
@@ -2545,7 +2004,6 @@ def committee():
 
                 <img
                     src="{{ image_url(c['photo']) }}"
-                    alt="{{ c['name'] }}"
                 >
 
                 {% endif %}
@@ -2555,13 +2013,8 @@ def committee():
                 </h3>
 
                 <p>
-
-                    <b>
-                        पद:
-                    </b>
-
+                    <b>पद:</b>
                     {{ c['post'] }}
-
                 </p>
 
                 {% if c['mobile'] %}
@@ -2577,26 +2030,19 @@ def committee():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी Committee details उपलब्ध नहीं हैं।
-                </p>
-
+                अभी committee details उपलब्ध नहीं हैं।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
     return public_page(
-        "Committee",
+        "समाज समिति",
         body
     )
 
@@ -2621,21 +2067,17 @@ def businesses():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
-                🏪 व्यापार / व्यवसाय Directory
+                🏪 व्यापार / व्यवसाय
             </h2>
 
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for b in rows %}
 
@@ -2645,7 +2087,6 @@ def businesses():
 
                 <img
                     src="{{ image_url(b['photo']) }}"
-                    alt="{{ b['name'] }}"
                 >
 
                 {% endif %}
@@ -2655,30 +2096,18 @@ def businesses():
                 </h3>
 
                 <p>
-                    <b>
-                        संचालक:
-                    </b>
-
+                    <b>संचालक:</b>
                     {{ b['owner'] }}
-
                 </p>
 
                 <p>
-                    <b>
-                        Category:
-                    </b>
-
+                    <b>Category:</b>
                     {{ b['category'] }}
-
                 </p>
 
                 <p>
-                    <b>
-                        Address:
-                    </b>
-
+                    <b>Address:</b>
                     {{ b['address'] }}
-
                 </p>
 
                 <p>
@@ -2703,21 +2132,14 @@ def businesses():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी Business Directory खाली है।
-                </p>
-
+                अभी business directory खाली है।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
@@ -2741,17 +2163,14 @@ def events():
         SELECT *
         FROM events
         WHERE active=1
-        ORDER BY event_date DESC,id DESC
+        ORDER BY id DESC
         """
     ).fetchall()
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2760,8 +2179,7 @@ def events():
 
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for e in rows %}
 
@@ -2771,7 +2189,6 @@ def events():
 
                 <img
                     src="{{ image_url(e['photo']) }}"
-                    alt="{{ e['title'] }}"
                 >
 
                 {% endif %}
@@ -2815,21 +2232,14 @@ def events():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी कोई कार्यक्रम उपलब्ध नहीं है।
-                </p>
-
+                अभी कोई कार्यक्रम नहीं है।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
@@ -2853,17 +2263,14 @@ def news():
         SELECT *
         FROM news
         WHERE active=1
-        ORDER BY news_date DESC,id DESC
+        ORDER BY id DESC
         """
     ).fetchall()
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2872,8 +2279,7 @@ def news():
 
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for n in rows %}
 
@@ -2883,7 +2289,6 @@ def news():
 
                 <img
                     src="{{ image_url(n['photo']) }}"
-                    alt="{{ n['title'] }}"
                 >
 
                 {% endif %}
@@ -2905,21 +2310,14 @@ def news():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी कोई समाचार उपलब्ध नहीं है।
-                </p>
-
+                अभी कोई समाचार नहीं है।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
@@ -2949,11 +2347,8 @@ def education():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -2962,8 +2357,7 @@ def education():
 
         </div>
 
-
-        <div class="grid">
+        <div class="card-grid">
 
         {% for e in rows %}
 
@@ -2971,7 +2365,7 @@ def education():
 
                 <div
                     style="
-                        font-size:44px;
+                        font-size:45px;
                         margin-bottom:10px;
                     "
                 >
@@ -2991,25 +2385,18 @@ def education():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    शिक्षा एवं सहायता की जानकारी
-                    Admin Panel से भरी जाएगी।
-                </p>
-
+                अभी education details उपलब्ध नहीं हैं।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows
     )
 
     return public_page(
-        "शिक्षा एवं सहायता",
+        "शिक्षा",
         body
     )
 
@@ -3034,23 +2421,19 @@ def gallery():
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
                 📸 समाज Gallery
             </h2>
 
-            <p class="muted">
+            <p>
                 समाज भवन, धार्मिक एवं कार्यक्रमों की तस्वीरें
             </p>
 
         </div>
-
 
         <div class="gallery">
 
@@ -3068,10 +2451,13 @@ def gallery():
                     {{ g['title'] }}
 
                     {% if g['category'] %}
-                        <br>
-                        <small>
-                            {{ g['category'] }}
-                        </small>
+
+                    <br>
+
+                    <small>
+                        {{ g['category'] }}
+                    </small>
+
                     {% endif %}
 
                 </div>
@@ -3081,21 +2467,14 @@ def gallery():
         {% else %}
 
             <div class="card">
-
-                <p>
-                    अभी Gallery खाली है।
-                </p>
-
+                अभी Gallery खाली है।
             </div>
 
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
 
@@ -3116,7 +2495,6 @@ def gallery():
 def donation():
 
     s = get_settings()
-
 
     if request.method == "POST":
 
@@ -3149,20 +2527,15 @@ def donation():
                 ""
             ).strip()
 
-
             if not name:
-
                 raise ValueError(
                     "Donor name zaroori hai."
                 )
 
-
             if amount <= 0:
-
                 raise ValueError(
                     "Valid amount dalo."
                 )
-
 
             con = db()
 
@@ -3187,15 +2560,16 @@ def donation():
             )
 
             con.commit()
-
             con.close()
-
 
             flash(
                 "Donation information save ho gayi.",
                 "success"
             )
 
+            return redirect(
+                url_for("donation")
+            )
 
         except Exception as e:
 
@@ -3204,23 +2578,21 @@ def donation():
                 "error"
             )
 
-
     body = render_template_string(
-
         """
-
         {% with messages=get_flashed_messages(
             with_categories=true
         ) %}
 
         {% for category,message in messages %}
 
-        <div class="panel">
-
-            <p>
-                {{ message }}
-            </p>
-
+        <div
+            class="alert
+            {% if category == 'error' %}
+            error
+            {% endif %}"
+        >
+            {{ message }}
         </div>
 
         {% endfor %}
@@ -3233,8 +2605,6 @@ def donation():
             <h2>
                 ❤️ समाज के लिए सहयोग
             </h2>
-
-            <br>
 
             <p>
                 {{ s['donation_info'] or
@@ -3279,7 +2649,6 @@ def donation():
 
                     </div>
 
-
                     <div>
 
                         <label>
@@ -3296,19 +2665,15 @@ def donation():
 
                     </div>
 
-
                     <div>
 
                         <label>
                             Purpose
                         </label>
 
-                        <input
-                            name="purpose"
-                        >
+                        <input name="purpose">
 
                     </div>
-
 
                     <div>
 
@@ -3316,9 +2681,7 @@ def donation():
                             Mode
                         </label>
 
-                        <select
-                            name="mode"
-                        >
+                        <select name="mode">
 
                             <option>
                                 UPI
@@ -3342,21 +2705,15 @@ def donation():
 
                 </div>
 
-
                 <br>
-
 
                 <label>
                     Note
                 </label>
 
-                <textarea
-                    name="note"
-                ></textarea>
-
+                <textarea name="note"></textarea>
 
                 <br><br>
-
 
                 <button
                     class="btn green"
@@ -3368,9 +2725,7 @@ def donation():
             </form>
 
         </div>
-
         """,
-
         s=s
     )
 
@@ -3389,12 +2744,9 @@ def contact():
 
     s = get_settings()
 
-
     body = render_template_string(
-
         """
-
-        <div class="grid">
+        <div class="card-grid">
 
             <div class="card">
 
@@ -3473,19 +2825,6 @@ def contact():
                     {{ s['email'] or '-' }}
                 </p>
 
-                {% if s['email'] %}
-
-                <br>
-
-                <a
-                    class="btn blue"
-                    href="mailto:{{ s['email'] }}"
-                >
-                    📧 Email
-                </a>
-
-                {% endif %}
-
             </div>
 
         </div>
@@ -3493,13 +2832,9 @@ def contact():
 
         {% if s['map_url'] %}
 
+        <br>
+
         <div class="panel">
-
-            <h2>
-                🗺️ Location
-            </h2>
-
-            <br>
 
             <a
                 class="btn blue"
@@ -3512,9 +2847,7 @@ def contact():
         </div>
 
         {% endif %}
-
         """,
-
         s=s
     )
 
@@ -3546,40 +2879,30 @@ def admin_login():
             ""
         )
 
-
         if (
-
             username == ADMIN_USER
-
             and
-
             check_password_hash(
                 ADMIN_PASSWORD_HASH,
                 password
             )
-
         ):
 
             session.clear()
 
             session["admin_logged_in"] = True
-
             session["admin_user"] = username
 
             return redirect(
                 url_for("admin_dashboard")
             )
 
+        flash(
+            "Wrong username ya password.",
+            "error"
+        )
 
-        error = "Wrong username ya password."
-
-    else:
-
-        error = ""
-
-
-    body = f"""
-
+    body = """
     <div
         style="
             max-width:430px;
@@ -3592,29 +2915,6 @@ def admin_login():
             <h2>
                 🔐 Admin Login
             </h2>
-
-            {
-
-                f'''
-                <div
-                    style="
-                        background:#ffe0e4;
-                        padding:12px;
-                        border-radius:8px;
-                    "
-                >
-                    {safe(error)}
-                </div>
-
-                <br>
-                '''
-
-                if error
-
-                else ""
-
-            }
-
 
             <form method="post">
 
@@ -3645,7 +2945,7 @@ def admin_login():
                     class="btn green"
                     type="submit"
                 >
-                    🔐 LOGIN
+                    LOGIN
                 </button>
 
             </form>
@@ -3653,9 +2953,7 @@ def admin_login():
         </div>
 
     </div>
-
     """
-
 
     return public_page(
         "Admin Login",
@@ -3688,54 +2986,30 @@ def admin_dashboard():
     con = db()
 
     members_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM members
-        WHERE active=1
-        """
+        "SELECT COUNT(*) FROM members WHERE active=1"
     ).fetchone()[0]
 
     committee_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM committee
-        WHERE active=1
-        """
+        "SELECT COUNT(*) FROM committee WHERE active=1"
     ).fetchone()[0]
 
     business_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM businesses
-        WHERE active=1
-        """
+        "SELECT COUNT(*) FROM businesses WHERE active=1"
     ).fetchone()[0]
 
-    event_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM events
-        WHERE active=1
-        """
+    events_count = con.execute(
+        "SELECT COUNT(*) FROM events WHERE active=1"
     ).fetchone()[0]
 
     news_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM news
-        WHERE active=1
-        """
+        "SELECT COUNT(*) FROM news WHERE active=1"
     ).fetchone()[0]
 
     gallery_count = con.execute(
-        """
-        SELECT COUNT(*)
-        FROM gallery
-        WHERE active=1
-        """
+        "SELECT COUNT(*) FROM gallery WHERE active=1"
     ).fetchone()[0]
 
-    donation_total = con.execute(
+    donations = con.execute(
         """
         SELECT COALESCE(
             SUM(amount),
@@ -3747,9 +3021,7 @@ def admin_dashboard():
 
     con.close()
 
-
     body = f"""
-
     <div class="panel">
 
         <h2>
@@ -3770,7 +3042,6 @@ def admin_dashboard():
 
     </div>
 
-
     <div class="grid">
 
         <div class="panel">
@@ -3790,7 +3061,7 @@ def admin_dashboard():
 
         <div class="panel">
             <h3>🎉 Events</h3>
-            <h2>{event_count}</h2>
+            <h2>{events_count}</h2>
         </div>
 
         <div class="panel">
@@ -3805,15 +3076,11 @@ def admin_dashboard():
 
         <div class="panel">
             <h3>❤️ Donations</h3>
-            <h2>
-                {money(donation_total)}
-            </h2>
+            <h2>{money(donations)}</h2>
         </div>
 
     </div>
-
     """
-
 
     return admin_page(
         "Admin Dashboard",
@@ -3834,7 +3101,6 @@ def admin_settings():
 
     con = db()
 
-
     if request.method == "POST":
 
         try:
@@ -3843,44 +3109,35 @@ def admin_settings():
                 "SELECT * FROM settings WHERE id=1"
             ).fetchone()
 
-
-            hero_file = save_upload(
-                request.files.get(
-                    "hero_photo"
-                )
+            hero = save_upload(
+                request.files.get("hero_photo")
             )
 
-            bhagwan_file = save_upload(
-                request.files.get(
-                    "bhagwan_photo"
-                )
+            bhagwan = save_upload(
+                request.files.get("bhagwan_photo")
             )
 
-            bhawan_file = save_upload(
-                request.files.get(
-                    "bhawan_photo"
-                )
+            bhawan = save_upload(
+                request.files.get("bhawan_photo")
             )
-
 
             hero = (
-                hero_file
-                or
-                current["hero_photo"]
+                hero
+                or current["hero_photo"]
+                or "ajmeedhji_maharaj.jpg"
             )
 
             bhagwan = (
-                bhagwan_file
-                or
-                current["bhagwan_photo"]
+                bhagwan
+                or current["bhagwan_photo"]
+                or "bhagwan.jpg"
             )
 
             bhawan = (
-                bhawan_file
-                or
-                current["bhawan_photo"]
+                bhawan
+                or current["bhawan_photo"]
+                or "samaj_bhawan.jpg"
             )
-
 
             con.execute(
                 """
@@ -3977,22 +3234,17 @@ def admin_settings():
                     ).strip(),
 
                     hero,
-
                     bhagwan,
-
                     bhawan
                 )
             )
 
-
             con.commit()
-
 
             flash(
                 "Society details update ho gayi.",
                 "success"
             )
-
 
         except Exception as e:
 
@@ -4003,18 +3255,14 @@ def admin_settings():
                 "error"
             )
 
-
     row = con.execute(
         "SELECT * FROM settings WHERE id=1"
     ).fetchone()
 
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -4026,7 +3274,7 @@ def admin_settings():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
 
@@ -4129,7 +3377,7 @@ def admin_settings():
                     <div>
 
                         <label>
-                            Phone
+                            Main Phone
                         </label>
 
                         <input
@@ -4268,9 +3516,7 @@ def admin_settings():
 
                 </div>
 
-
                 <br>
-
 
                 <button
                     class="btn green"
@@ -4282,12 +3528,9 @@ def admin_settings():
             </form>
 
         </div>
-
         """,
-
         r=row
     )
-
 
     return admin_page(
         "Society Details",
@@ -4308,14 +3551,12 @@ def admin_members():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -4390,15 +3631,12 @@ def admin_members():
                     )
                 )
 
-
             con.commit()
-
 
             flash(
                 "Member operation successful.",
                 "success"
             )
-
 
         except Exception as e:
 
@@ -4409,7 +3647,6 @@ def admin_members():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -4419,14 +3656,10 @@ def admin_members():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -4438,7 +3671,7 @@ def admin_members():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Name</label>
@@ -4478,7 +3711,7 @@ def admin_members():
                     </div>
 
                     <div class="full">
-                        <label>Family Details</label>
+                        <label>Family</label>
                         <textarea
                             name="family"
                         ></textarea>
@@ -4508,32 +3741,14 @@ def admin_members():
 
                     <tr>
 
-                        <th>
-                            Photo
-                        </th>
-
-                        <th>
-                            Name
-                        </th>
-
-                        <th>
-                            Mobile
-                        </th>
-
-                        <th>
-                            City
-                        </th>
-
-                        <th>
-                            Occupation
-                        </th>
-
-                        <th>
-                            Action
-                        </th>
+                        <th>Photo</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>City</th>
+                        <th>Occupation</th>
+                        <th>Action</th>
 
                     </tr>
-
 
                     {% for r in rows %}
 
@@ -4572,9 +3787,7 @@ def admin_members():
 
                         <td>
 
-                            <form
-                                method="post"
-                            >
+                            <form method="post">
 
                                 <input
                                     type="hidden"
@@ -4608,14 +3821,10 @@ def admin_members():
             </div>
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
-
 
     return admin_page(
         "Members",
@@ -4636,14 +3845,12 @@ def admin_committee():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -4708,15 +3915,7 @@ def admin_committee():
                     )
                 )
 
-
             con.commit()
-
-
-            flash(
-                "Committee operation successful.",
-                "success"
-            )
-
 
         except Exception as e:
 
@@ -4727,7 +3926,6 @@ def admin_committee():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -4737,14 +3935,10 @@ def admin_committee():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -4756,7 +3950,7 @@ def admin_committee():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Name</label>
@@ -4819,25 +4013,11 @@ def admin_committee():
             <table>
 
                 <tr>
-
-                    <th>
-                        Name
-                    </th>
-
-                    <th>
-                        Post
-                    </th>
-
-                    <th>
-                        Mobile
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Name</th>
+                    <th>Post</th>
+                    <th>Mobile</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -4857,9 +4037,7 @@ def admin_committee():
 
                     <td>
 
-                        <form
-                            method="post"
-                        >
+                        <form method="post">
 
                             <input
                                 type="hidden"
@@ -4891,12 +4069,9 @@ def admin_committee():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "Committee",
@@ -4917,14 +4092,12 @@ def admin_businesses():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -4999,9 +4172,7 @@ def admin_businesses():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -5012,7 +4183,6 @@ def admin_businesses():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -5022,14 +4192,10 @@ def admin_businesses():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -5041,7 +4207,7 @@ def admin_businesses():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Business Name</label>
@@ -5108,29 +4274,12 @@ def admin_businesses():
             <table>
 
                 <tr>
-
-                    <th>
-                        Name
-                    </th>
-
-                    <th>
-                        Owner
-                    </th>
-
-                    <th>
-                        Category
-                    </th>
-
-                    <th>
-                        Mobile
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Name</th>
+                    <th>Owner</th>
+                    <th>Category</th>
+                    <th>Mobile</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -5186,12 +4335,9 @@ def admin_businesses():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "Businesses",
@@ -5212,14 +4358,12 @@ def admin_events():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -5294,9 +4438,7 @@ def admin_events():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -5307,7 +4449,6 @@ def admin_events():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -5317,18 +4458,14 @@ def admin_events():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
-                🎉 Events / Programmes
+                🎉 Events
             </h2>
 
             <form
@@ -5336,7 +4473,7 @@ def admin_events():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Title</label>
@@ -5409,25 +4546,11 @@ def admin_events():
             <table>
 
                 <tr>
-
-                    <th>
-                        Title
-                    </th>
-
-                    <th>
-                        Date
-                    </th>
-
-                    <th>
-                        Venue
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Title</th>
+                    <th>Date</th>
+                    <th>Venue</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -5479,12 +4602,9 @@ def admin_events():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "Events",
@@ -5505,14 +4625,12 @@ def admin_news():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -5569,9 +4687,7 @@ def admin_news():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -5582,7 +4698,6 @@ def admin_news():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -5592,14 +4707,10 @@ def admin_news():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -5611,7 +4722,7 @@ def admin_news():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Title</label>
@@ -5639,7 +4750,7 @@ def admin_news():
                     </div>
 
                     <div class="full">
-                        <label>News / Details</label>
+                        <label>News</label>
                         <textarea
                             name="body"
                         ></textarea>
@@ -5666,21 +4777,10 @@ def admin_news():
             <table>
 
                 <tr>
-
-                    <th>
-                        Title
-                    </th>
-
-                    <th>
-                        Date
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Title</th>
+                    <th>Date</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -5728,12 +4828,9 @@ def admin_news():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "News",
@@ -5754,14 +4851,12 @@ def admin_notices():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -5809,9 +4904,7 @@ def admin_notices():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -5822,7 +4915,6 @@ def admin_notices():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -5832,14 +4924,10 @@ def admin_notices():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -5848,7 +4936,7 @@ def admin_notices():
 
             <form method="post">
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
                         <label>Title</label>
@@ -5894,21 +4982,10 @@ def admin_notices():
             <table>
 
                 <tr>
-
-                    <th>
-                        Title
-                    </th>
-
-                    <th>
-                        Date
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Title</th>
+                    <th>Date</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -5956,12 +5033,9 @@ def admin_notices():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "Notices",
@@ -5982,14 +5056,12 @@ def admin_education():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -6037,9 +5109,7 @@ def admin_education():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -6050,7 +5120,6 @@ def admin_education():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -6060,28 +5129,22 @@ def admin_education():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
-                🎓 Education & Help
+                🎓 Education
             </h2>
 
             <form method="post">
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
-                        <label>
-                            Title
-                        </label>
+                        <label>Title</label>
                         <input
                             name="title"
                             required
@@ -6089,9 +5152,7 @@ def admin_education():
                     </div>
 
                     <div>
-                        <label>
-                            Icon / Emoji
-                        </label>
+                        <label>Icon</label>
                         <input
                             name="icon"
                             value="🎓"
@@ -6099,15 +5160,10 @@ def admin_education():
                     </div>
 
                     <div class="full">
-
-                        <label>
-                            Details
-                        </label>
-
+                        <label>Details</label>
                         <textarea
                             name="body"
                         ></textarea>
-
                     </div>
 
                 </div>
@@ -6131,21 +5187,10 @@ def admin_education():
             <table>
 
                 <tr>
-
-                    <th>
-                        Title
-                    </th>
-
-                    <th>
-                        Icon
-                    </th>
-
-                    <th>
-                        Action
-                    </th>
-
+                    <th>Title</th>
+                    <th>Icon</th>
+                    <th>Action</th>
                 </tr>
-
 
                 {% for r in rows %}
 
@@ -6193,12 +5238,9 @@ def admin_education():
             </table>
 
         </div>
-
         """,
-
         rows=rows
     )
-
 
     return admin_page(
         "Education",
@@ -6219,14 +5261,12 @@ def admin_gallery():
 
     con = db()
 
-
     if request.method == "POST":
 
         action = request.form.get(
             "action",
             ""
         )
-
 
         try:
 
@@ -6253,13 +5293,11 @@ def admin_gallery():
                     )
                 )
 
-
                 if not photo:
 
                     raise ValueError(
-                        "Gallery photo select karo."
+                        "Photo select karo."
                     )
-
 
                 con.execute(
                     """
@@ -6285,9 +5323,7 @@ def admin_gallery():
                     )
                 )
 
-
             con.commit()
-
 
         except Exception as e:
 
@@ -6298,7 +5334,6 @@ def admin_gallery():
                 "error"
             )
 
-
     rows = con.execute(
         """
         SELECT *
@@ -6308,14 +5343,10 @@ def admin_gallery():
         """
     ).fetchall()
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -6327,56 +5358,40 @@ def admin_gallery():
                 enctype="multipart/form-data"
             >
 
-                <div class="form">
+                <div class="form-grid">
 
                     <div>
-                        <label>
-                            Title
-                        </label>
-
+                        <label>Title</label>
                         <input name="title">
-
                     </div>
 
-
                     <div>
-                        <label>
-                            Category
-                        </label>
-
+                        <label>Category</label>
                         <input
                             name="category"
                             value="General"
                         >
-
                     </div>
 
-
                     <div class="full">
-                        <label>
-                            Photo
-                        </label>
-
+                        <label>Photo</label>
                         <input
                             type="file"
                             name="photo"
                             accept=".jpg,.jpeg,.png,.webp,.gif"
                             required
                         >
-
                     </div>
 
                 </div>
 
-
                 <br>
-
 
                 <button
                     class="btn green"
                     type="submit"
                 >
-                    📸 UPLOAD PHOTO
+                    📸 UPLOAD
                 </button>
 
             </form>
@@ -6384,7 +5399,7 @@ def admin_gallery():
         </div>
 
 
-        <div class="grid">
+        <div class="card-grid">
 
         {% for r in rows %}
 
@@ -6402,7 +5417,6 @@ def admin_gallery():
                 <p>
                     {{ r['category'] }}
                 </p>
-
 
                 <form method="post">
 
@@ -6432,14 +5446,10 @@ def admin_gallery():
         {% endfor %}
 
         </div>
-
         """,
-
         rows=rows,
-
         image_url=image_url
     )
-
 
     return admin_page(
         "Gallery",
@@ -6457,7 +5467,6 @@ def admin_donations():
 
     con = db()
 
-
     rows = con.execute(
         """
         SELECT *
@@ -6465,7 +5474,6 @@ def admin_donations():
         ORDER BY id DESC
         """
     ).fetchall()
-
 
     total = con.execute(
         """
@@ -6477,14 +5485,10 @@ def admin_donations():
         """
     ).fetchone()[0]
 
-
     con.close()
 
-
     body = render_template_string(
-
         """
-
         <div class="panel">
 
             <h2>
@@ -6501,80 +5505,69 @@ def admin_donations():
 
         <div class="panel">
 
-            <div
-                style="overflow-x:auto"
-            >
+            <table>
 
-                <table>
+                <tr>
 
-                    <tr>
+                    <th>
+                        Donor
+                    </th>
 
-                        <th>
-                            Donor
-                        </th>
+                    <th>
+                        Amount
+                    </th>
 
-                        <th>
-                            Amount
-                        </th>
+                    <th>
+                        Purpose
+                    </th>
 
-                        <th>
-                            Purpose
-                        </th>
+                    <th>
+                        Mode
+                    </th>
 
-                        <th>
-                            Mode
-                        </th>
+                    <th>
+                        Note
+                    </th>
 
-                        <th>
-                            Note
-                        </th>
+                </tr>
 
-                    </tr>
+                {% for r in rows %}
 
+                <tr>
 
-                    {% for r in rows %}
+                    <td>
+                        {{ r['donor_name'] }}
+                    </td>
 
-                    <tr>
+                    <td>
+                        ₹ {{ "%.2f"|format(
+                            r['amount'] or 0
+                        ) }}
+                    </td>
 
-                        <td>
-                            {{ r['donor_name'] }}
-                        </td>
+                    <td>
+                        {{ r['purpose'] }}
+                    </td>
 
-                        <td>
-                            ₹ {{ "%.2f"|format(
-                                r['amount'] or 0
-                            ) }}
-                        </td>
+                    <td>
+                        {{ r['mode'] }}
+                    </td>
 
-                        <td>
-                            {{ r['purpose'] }}
-                        </td>
+                    <td>
+                        {{ r['note'] }}
+                    </td>
 
-                        <td>
-                            {{ r['mode'] }}
-                        </td>
+                </tr>
 
-                        <td>
-                            {{ r['note'] }}
-                        </td>
+                {% endfor %}
 
-                    </tr>
-
-                    {% endfor %}
-
-                </table>
-
-            </div>
+            </table>
 
         </div>
-
         """,
-
         rows=rows,
-
         total=total
     )
-
 
     return admin_page(
         "Donations",
@@ -6591,22 +5584,22 @@ if __name__ == "__main__":
     setup()
 
     print()
-    print("=" * 65)
-    print("          मैढ़ स्वर्णकार समाज - WEBSITE")
-    print("          Jodhpur, Rajasthan")
-    print("=" * 65)
+    print("=" * 60)
+    print("       मैढ़ स्वर्णकार समाज - WEBSITE")
+    print("       Jodhpur, Rajasthan")
+    print("=" * 60)
     print()
     print("Website:")
     print("http://127.0.0.1:5000")
     print()
-    print("Admin Panel:")
+    print("Admin:")
     print("http://127.0.0.1:5000/admin/login")
     print()
-    print("Default Admin Username : admin")
-    print("Default Admin Password : 1234")
+    print("Username : admin")
+    print("Password : 1234")
     print()
     print("Developer : KRISHNA")
-    print("=" * 65)
+    print("=" * 60)
 
     app.run(
         host="127.0.0.1",
